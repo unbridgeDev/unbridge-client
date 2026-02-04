@@ -1,0 +1,17 @@
+/cmd/ecdsa_demo/ecdsa_demo
+/cmd/kobe-ecdsa/kobe-ecdsa
+/cmd/operator/operator
+/cmd/gen-operators/gen-operators
+/cmd/verify-sig/verify-sig
+# stray root-level built binaries (e.g. `go build -o operator ./cmd/operator`)
+/operator
+/gen-operators
+/verify-sig
+/ecdsa_demo
+/kobe-ecdsa
+# keygen share files (hold secret share material) must never be committed
+*shares*.json
+*.share.json
+# operator configs hold an Ed25519 identity PRIVATE key; never commit
+operators/
+*.forged.json
