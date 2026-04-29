@@ -1,0 +1,6 @@
+.env
+.env.*
+*.local
+.admin-secret.local
+node_modules
+.next
