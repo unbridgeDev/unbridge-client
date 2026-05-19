@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "distin-product",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "start"],
+      "autoPort": true
+    }
+  ]
+}
