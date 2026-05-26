@@ -39,7 +39,7 @@
     "bs58": "^6.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.4.0",
+    "@types/node": "^25.9.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
