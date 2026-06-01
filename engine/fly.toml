@@ -1,0 +1,13 @@
+app = "distin-signerd-thke4j"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile.railway"
+
+[processes]
+  app = "/app/signerd run"
+
+# No [http_service] — this is a background worker (the signer), not a web server.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

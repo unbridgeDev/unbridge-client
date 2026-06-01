@@ -1,0 +1,40 @@
+# Railway build: same as Dockerfile.signerd but bakes the devnet key material
+# into the image (Railway has no bind mounts). DEVNET ONLY — the admin key is the
+# program upgrade authority; on mainnet use Railway secrets + a dedicated,
+# non-upgrade-authority fee payer instead.
+FROM golang:1.26-bookworm AS build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      clang curl ca-certificates pkg-config libssl-dev libudev-dev && rm -rf /var/lib/apt/lists/*
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+WORKDIR /src
+COPY kobe kobe
+COPY kobe-ecdsa kobe-ecdsa
+COPY coordinator coordinator
+RUN cd kobe && cargo build --release
+RUN cd coordinator && cargo build --release --bin signerd
+ENV CGO_LDFLAGS="-L/src/kobe/target/release -lkobe -Wl,-rpath,/src/kobe/target/release"
+RUN cd kobe-ecdsa && \
+    go build -o /out/operator ./cmd/operator && \
+    go build -o /out/frost-operator ./cmd/frost-operator && \
+    go build -o /out/gen-operators ./cmd/gen-operators
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/coordinator/target/release/signerd          /app/signerd
+COPY --from=build /src/kobe/target/release/libkobe.so              /app/lib/libkobe.so
+COPY --from=build /out/operator /out/frost-operator /out/gen-operators /app/bin/
+# Devnet keys baked in (see header caveat). Passphrases come from Railway env.
+# Keys live at KOBE_ECDSA_DIR/keys so the Go operators — which read shares via the
+# RELATIVE path "keys/gg20/operators/opN.share.json" from their cwd (KOBE_ECDSA_DIR)
+# — resolve them, exactly like the local ~/.distin layout.
+COPY railway-keys /app/keys
+ENV LD_LIBRARY_PATH=/app/lib \
+    DISTIN_GG20_BIN_DIR=/app/bin \
+    DISTIN_FROSTNET_BIN_DIR=/app/bin \
+    KOBE_ECDSA_DIR=/app \
+    DISTIN_KEYS_DIR=/app/keys \
+    DISTIN_PROGRAM_ID=4xy9dYHfAzi7cAcX5JHxNR6EoMJ9PGfeQDMHx6YUQQM6 \
+    DISTIN_ADMIN_KEYPAIR=/app/keys/admin.json
+WORKDIR /app
+CMD ["/app/signerd", "run"]
