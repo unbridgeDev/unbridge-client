@@ -1,0 +1,52 @@
+# distin-signerd container: the persistent off-chain signer (FROST + GG20).
+# Build context is engine/. Both crypto stacks are compiled in:
+#   - kobe (Rust cdylib, audited ZF frost-ed25519) reached over cgo
+#   - kobe-ecdsa (Go tss-lib GG20 / secp256k1) as networked operator binaries
+#   - signerd (Rust) itself
+# Keys are NOT baked in; mount them at /keys (bind volume or secret).
+#
+#   docker build -f Dockerfile.signerd -t distin-signerd .
+#   docker run -d --name signerd -v $PWD/coordinator/keys:/keys distin-signerd
+
+FROM golang:1.26-bookworm AS build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      clang curl ca-certificates pkg-config libssl-dev libudev-dev && rm -rf /var/lib/apt/lists/*
+# Rust toolchain for kobe + signerd.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /src
+COPY kobe kobe
+COPY kobe-ecdsa kobe-ecdsa
+COPY coordinator coordinator
+
+# 1. audited FROST cdylib.
+RUN cd kobe && cargo build --release
+# 2. signerd binary.
+RUN cd coordinator && cargo build --release --bin signerd
+# 3. Go operator binaries (GG20 + networked FROST), linked to the cdylib over cgo.
+ENV CGO_LDFLAGS="-L/src/kobe/target/release -lkobe -Wl,-rpath,/src/kobe/target/release"
+RUN cd kobe-ecdsa && \
+    go build -o /out/operator ./cmd/operator && \
+    go build -o /out/frost-operator ./cmd/frost-operator && \
+    go build -o /out/gen-operators ./cmd/gen-operators
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/coordinator/target/release/signerd          /app/signerd
+COPY --from=build /src/kobe/target/release/libkobe.so              /app/lib/libkobe.so
+COPY --from=build /out/operator /out/frost-operator /out/gen-operators /app/bin/
+# The Go operators resolve libkobe.so via LD_LIBRARY_PATH at runtime.
+# Secrets (DISTIN_KEY_PASSPHRASE, DISTIN_SHARE_PASSPHRASE) are injected at run
+# time (docker -e / orchestrator secret), never baked into the image.
+ENV LD_LIBRARY_PATH=/app/lib \
+    DISTIN_GG20_BIN_DIR=/app/bin \
+    DISTIN_FROSTNET_BIN_DIR=/app/bin \
+    KOBE_ECDSA_DIR=/app \
+    DISTIN_KEYS_DIR=/keys \
+    DISTIN_RPC_URL=https://api.devnet.solana.com \
+    DISTIN_PROGRAM_ID=4xy9dYHfAzi7cAcX5JHxNR6EoMJ9PGfeQDMHx6YUQQM6 \
+    DISTIN_ADMIN_KEYPAIR=/keys/admin.json
+WORKDIR /app
+CMD ["/app/signerd", "run"]
