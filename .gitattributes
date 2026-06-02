@@ -1,0 +1,30 @@
+* text=auto eol=lf
+
+*.rs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.go text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
+*.md text eol=lf
+*.mdx text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.mp4 binary
+*.so binary
+
+*.ts linguist-language=TypeScript
+*.tsx linguist-language=TypeScript
+*.rs linguist-language=Rust
+*.go linguist-language=Go
+*.mdx linguist-documentation
+docs/* linguist-documentation
+web/public/* linguist-generated
+web/.next/* linguist-generated
+engine/**/target/* linguist-generated
