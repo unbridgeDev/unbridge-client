@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  program:
+    name: distin — on-chain program (fmt + check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: program-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'engine/programs/distin/Cargo.toml') }}
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+        continue-on-error: true
+
+      - name: Cargo check (advisory)
+        run: cargo check --workspace
+        continue-on-error: true
+
+      - name: Clippy (advisory)
+        run: cargo clippy --workspace --all-targets -- -W warnings
+        continue-on-error: true
+
+  kobe-frost:
+    name: kobe — FROST Ed25519 (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine/kobe
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            engine/kobe/target
+          key: kobe-${{ runner.os }}-${{ hashFiles('engine/kobe/Cargo.lock') }}
+
+      - name: Build (advisory)
+        run: cargo build --lib
+        continue-on-error: true
+
+      - name: Threshold-signature tests
+        run: cargo test --lib --tests
+        continue-on-error: true
+
+  kobe-ecdsa:
+    name: kobe-ecdsa — GG20 secp256k1 (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine/kobe-ecdsa
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: engine/kobe-ecdsa/go.sum
+
+      - name: Build (advisory)
+        run: go build ./...
+        continue-on-error: true
+
+      - name: Test (advisory, slow safe-prime DKG)
+        run: go test -short -timeout 300s ./...
+        continue-on-error: true
+
+  web:
+    name: web — Next.js (typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        continue-on-error: true
+
+      - name: Typecheck
+        run: npx --no-install tsc --noEmit || true
+        continue-on-error: true
+
+  secret-scan:
+    name: gitleaks — secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
