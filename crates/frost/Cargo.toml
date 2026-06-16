@@ -1,0 +1,25 @@
+[package]
+name = "frost"
+version = "0.1.0"
+edition = "2021"
+description = "FROST threshold signing over Baby Jubjub for Unbridge. Two-round Schnorr aggregation with EdDSA-Poseidon signature encoding compatible with the pool's Groth16 spend-authorization circuit."
+license = "MIT"
+repository = "https://github.com/unbridgeDev/unbridge-client"
+homepage = "https://unbridge.dev"
+readme = "README.md"
+
+[lib]
+name = "frost"
+path = "src/lib.rs"
+
+[dependencies]
+ark-bn254 = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
+ark-serialize = { version = "0.5", default-features = false }
+light-poseidon = "0.3"
+thiserror = "1"
+rand_core = "0.6"
+zeroize = { version = "1.7", features = ["derive"] }
+
+[dev-dependencies]
+rand_core = { version = "0.6", features = ["getrandom"] }
