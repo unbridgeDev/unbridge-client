@@ -1,0 +1,26 @@
+[package]
+name = "confidential-vault"
+version = "0.1.0"
+edition = "2021"
+description = "FROST-compatible driver for Token-2022 confidential balances. Configures the ElGamal view key independently from the owner signature so a threshold group can own a confidential account."
+license = "MIT"
+repository = "https://github.com/unbridgeDev/unbridge"
+homepage = "https://unbridge.dev"
+readme = "README.md"
+publish = false
+
+[[bin]]
+name = "confidential-vault"
+path = "src/main.rs"
+
+[dependencies]
+solana-sdk = "3.0.0"
+solana-client = "3.1.6"
+solana-commitment-config = "3.0.0"
+solana-system-interface = "2.0.0"
+spl-token-2022 = "11.0.0"
+spl-associated-token-account = "8.0.0"
+spl-token-confidential-transfer-proof-extraction = "0.6.0"
+solana-zk-sdk = "6.0.1"
+serde_json = "1"
+bytemuck = "1"
