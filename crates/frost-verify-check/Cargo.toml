@@ -1,0 +1,19 @@
+[package]
+name = "frost-verify-check"
+version = "0.1.0"
+edition = "2021"
+description = "Off-chain Groth16 verifier that runs the same alt_bn128 pairing check as the Unbridge on-chain program"
+license = "MIT"
+repository = "https://github.com/unbridgeDev/unbridge"
+homepage = "https://unbridge.dev"
+readme = "README.md"
+
+# Standalone off-chain check: run the exact solana-bn254 (alt_bn128) verifier
+# against Unbridge pool circuit proofs, to de-risk on-chain verification before
+# flashing a program upgrade.
+[dependencies]
+solana-bn254 = "2.2.2"
+num-bigint = "0.4.4"
+ark-ff = "0.5.0"
+ark-bn254 = "0.5.0"
+thiserror = "1.0.69"
