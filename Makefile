@@ -1,4 +1,4 @@
-.PHONY: build test lint format check clean anchor-build web-build
+.PHONY: build test lint format check clean anchor-build
 
 build:
 	cargo build --workspace
@@ -20,9 +20,5 @@ check:
 anchor-build:
 	cd engine && anchor build
 
-web-build:
-	cd web && npm run build
-
 clean:
 	cargo clean
-	rm -rf web/.next web/out
