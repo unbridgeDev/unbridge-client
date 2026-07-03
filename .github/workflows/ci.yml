@@ -76,7 +76,7 @@ jobs:
       run:
         working-directory: engine/kobe-ecdsa
     env:
-      CGO_LDFLAGS: -L${{ github.workspace }}/engine/kobe/target/release
+      CGO_LDFLAGS: -L${{ github.workspace }}/engine/kobe/target/release -lkobe
       LD_LIBRARY_PATH: ${{ github.workspace }}/engine/kobe/target/release
     steps:
       - uses: actions/checkout@v4
