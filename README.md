@@ -213,9 +213,6 @@ unbridge/
 │   │   ├── src/fulfill.rs         watch SigningRequest, drive MPC, submit agg
 │   │   └── m7-demo.sh             networked capstone against a local validator
 │   └── tests-litesvm/              in-process SVM loading target/deploy/distin.so
-├── web/                            Next.js 16 dApp (App Router, Tailwind, R3F)
-│   ├── app/                       pages: /, /request, /activity, /operators
-│   └── public/                    static assets
 ├── docs/                           protocol documentation (.mdx)
 │   ├── architecture.mdx           layered diagram, threat boundary
 │   ├── how-it-works.mdx           full round-by-round protocol
@@ -260,14 +257,6 @@ Full on-chain, MPC, on-chain loop on a local validator:
 
 ```bash
 cd engine/coordinator && ./m7-demo.sh
-```
-
-Site:
-
-```bash
-cd web
-npm install
-npm run dev      # http://localhost:3000
 ```
 
 Program ID (declared for every cluster in `Anchor.toml`): `4xy9dYHfAzi7cAcX5JHxNR6EoMJ9PGfeQDMHx6YUQQM6`
