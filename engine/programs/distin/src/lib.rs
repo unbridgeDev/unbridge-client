@@ -130,7 +130,11 @@ pub mod distin {
     /// Replaces the feed set at init, so a placeholder can be swapped for a real
     /// on-chain oracle after deployment. Does not touch any operator account.
     pub fn set_lst_price_feed(ctx: Context<AdminConfig>, new_feed: Pubkey) -> Result<()> {
-        require_keys_neq!(new_feed, Pubkey::default(), DistinError::InvalidOracleAccount);
+        require_keys_neq!(
+            new_feed,
+            Pubkey::default(),
+            DistinError::InvalidOracleAccount
+        );
         ctx.accounts.protocol.lst_price_feed = new_feed;
         Ok(())
     }

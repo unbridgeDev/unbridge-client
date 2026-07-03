@@ -1,5 +1,6 @@
 [toolchain]
-channel = "1.79.0"
+# Host toolchain (checks, tests, coordinator). SBF program builds use
+# cargo-build-sbf's own pinned rustc, not this channel.
+channel = "1.96.0"
 components = ["rustfmt", "clippy"]
-targets = ["bpfel-unknown-unknown"]
 profile = "minimal"
