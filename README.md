@@ -26,7 +26,7 @@ Unbridge turns Solana into a control plane for cross-chain signing. Instead of w
 
 The hard part is the cryptography, so this README leads with it. You can verify the core claim yourself in about two minutes.
 
-The original protocol code is in `engine/`, `web/`, and `docs/`. `lib/` (if present in a future fork) is vendored dependencies via pinned git submodules, never source-copied.
+The original protocol code is in `engine/` and `docs/`. `lib/` (if present in a future fork) is vendored dependencies via pinned git submodules, never source-copied.
 
 ## Feature status
 
@@ -40,7 +40,6 @@ The original protocol code is in `engine/`, `web/`, and `docs/`. `lib/` (if pres
 | Litesvm integration tests | `engine/tests-litesvm` | n/a | stable |
 | Bitcoin native transfer | `engine/kobe-ecdsa/cmd/btc-send` | secp256k1 | stable |
 | Tron native transfer | `engine/kobe-ecdsa/cmd/tron-send` | secp256k1 | stable |
-| Web dApp | `web/` | n/a | beta |
 | Mainnet deploy | `engine/programs/distin` | n/a | alpha, pre-audit |
 
 ## The proof, on-chain
