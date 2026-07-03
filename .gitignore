@@ -59,3 +59,8 @@ web/public/story.html
 # Compiled Go binaries (rebuildable with go build ./cmd/btc-send)
 engine/kobe-ecdsa/btc-send
 engine/kobe-ecdsa/tron-send
+
+# Frontend code — kept local only, never pushed to public repo
+web/
+product/web/
+web_images/
