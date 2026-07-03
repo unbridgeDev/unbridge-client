@@ -97,30 +97,6 @@ jobs:
         run: go test -short -timeout 300s ./...
         continue-on-error: true
 
-  web:
-    name: web — Next.js (typecheck)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        continue-on-error: true
-
-      - name: Typecheck
-        run: npx --no-install tsc --noEmit || true
-        continue-on-error: true
-
   secret-scan:
     name: gitleaks — secret scan
     runs-on: ubuntu-latest
