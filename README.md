@@ -17,7 +17,7 @@
 <p align="center">
   <a href="https://unbridge.dev"><img alt="Website" src="https://img.shields.io/badge/website-unbridge.dev-6d5cff?style=for-the-badge"/></a>
   <a href="https://x.com/unbridgeDev"><img alt="X" src="https://img.shields.io/badge/x-@unbridgeDev-1c1c1c?style=for-the-badge"/></a>
-  <a href="#build--test"><img alt="Rust" src="https://img.shields.io/badge/rust-1.79-orange?style=for-the-badge"/></a>
+  <a href="#build--test"><img alt="Rust" src="https://img.shields.io/badge/rust-1.96-orange?style=for-the-badge"/></a>
   <a href="#build--test"><img alt="Anchor" src="https://img.shields.io/badge/anchor-0.31.1-blueviolet?style=for-the-badge"/></a>
   <a href="#build--test"><img alt="Solana" src="https://img.shields.io/badge/solana-1.18.26-14f195?style=for-the-badge"/></a>
 </p>
@@ -179,6 +179,8 @@ The scheme is fixed on the request at creation and is immutable; a mismatched pa
 
 ## Project structure
 
+`distin` is the engine's original codename; the on-chain program, its crate, and the daemon keep that name so the deployed Program ID and its source lineage stay byte-for-byte traceable. Unbridge is the name of the whole stack.
+
 ```
 unbridge/
 ├── engine/
@@ -219,7 +221,6 @@ unbridge/
 │   ├── api-reference.mdx          on-chain instructions and accounts
 │   └── integration.mdx            SDK usage for dApps, wallets, relayers
 ├── product/                        launch-ready scripts and bootstrap helpers
-├── marketing/                      launch copy, tweets, article, banners
 ├── Anchor.toml                     0.31 toolchain pin, per-cluster Program IDs
 ├── Cargo.toml                      workspace, shared deps, release profile
 ├── Dockerfile                      multi-stage, non-root, minimal runtime
