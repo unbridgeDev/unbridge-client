@@ -429,6 +429,13 @@ fn run(rpc: &RpcClient, program: &Pubkey) {
             if r.status != 0 || slot > r.expiry_slot {
                 continue; // only Pending, not expired
             }
+            if require_wallet() && !wallet_registered(rpc, program, &protocol, &r.requester) {
+                eprintln!(
+                    "  request {pda}: requester {} has no registered wallet, skipping",
+                    r.requester
+                );
+                continue;
+            }
             // Isolate each request: a panic inside fulfill (e.g. an RPC send that
             // unwraps on a transient error) must skip this one request, never take
             // the whole daemon down. catch_unwind turns it into a logged skip.
@@ -640,6 +647,7 @@ fn read_request_nonce(buf: &[u8]) -> u64 {
 
 struct ReqView {
     request_id: u64,
+    requester: Pubkey,
     scheme: u8,
     message_hash: [u8; 32],
     status: u8,
@@ -647,6 +655,7 @@ struct ReqView {
 }
 
 fn decode_request(buf: &[u8]) -> ReqView {
+    let requester = Pubkey::new_from_array(buf[8 + 32..8 + 64].try_into().unwrap());
     let mut o = 8 + 32 + 32;
     let request_id = u64::from_le_bytes(buf[o..o + 8].try_into().unwrap());
     o += 8;
@@ -661,11 +670,40 @@ fn decode_request(buf: &[u8]) -> ReqView {
     let status = buf[o];
     ReqView {
         request_id,
+        requester,
         scheme,
         message_hash,
         status,
         expiry_slot,
     }
+}
+
+/// Wallet-gate policy (second line of defense behind the on-chain constraint).
+///
+/// With `DISTIN_REQUIRE_WALLET=1` the daemon only fulfills requests whose
+/// requester has a registered `Wallet` PDA (`[b"wallet", protocol, requester]`
+/// holding that same authority). Requests from unregistered requesters are
+/// skipped, whichever instruction created them. Default off: the live devnet
+/// flow (legacy permissionless requests) keeps working until clients migrate.
+fn require_wallet() -> bool {
+    std::env::var("DISTIN_REQUIRE_WALLET").map(|v| v == "1") == Ok(true)
+}
+
+fn wallet_registered(
+    rpc: &RpcClient,
+    program: &Pubkey,
+    protocol: &Pubkey,
+    requester: &Pubkey,
+) -> bool {
+    let (wallet, _) = Pubkey::find_program_address(
+        &[b"wallet", protocol.as_ref(), requester.as_ref()],
+        program,
+    );
+    let Ok(acc) = rpc.get_account(&wallet) else {
+        return false; // account absent (or RPC error): fail closed
+    };
+    // Wallet layout: disc 8 + protocol 32 + authority 32 + registered_slot 8 + bump 1.
+    acc.owner == *program && acc.data.len() >= 81 && acc.data[40..72] == requester.to_bytes()
 }
 
 fn hex(b: &[u8]) -> String {

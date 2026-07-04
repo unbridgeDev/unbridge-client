@@ -28,3 +28,7 @@ sha2 = "0.10"
 [[test]]
 name = "slash_attested"
 path = "tests/slash_attested.rs"
+
+[[test]]
+name = "wallet_gate"
+path = "tests/wallet_gate.rs"

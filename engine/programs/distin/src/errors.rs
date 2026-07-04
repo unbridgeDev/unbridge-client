@@ -69,4 +69,7 @@ pub enum DistinError {
 
     #[msg("Arithmetic overflow")]
     MathOverflow,
+
+    #[msg("Requester has no registered wallet identity")]
+    WalletNotRegistered,
 }

@@ -373,76 +373,84 @@ pub mod distin {
         threshold: u16,
         validity_slots: u64,
     ) -> Result<()> {
-        let protocol = &ctx.accounts.protocol;
-        require!(!protocol.paused, DistinError::ProtocolPaused);
-        require!(protocol.operator_count > 0, DistinError::NoActiveOperators);
-        require!(
-            message_hash.iter().any(|b| *b != 0),
-            DistinError::EmptyMessageHash
-        );
-        require!(
-            threshold >= 1 && (threshold as u32) <= protocol.operator_count,
-            DistinError::InvalidThreshold
-        );
-        require!(
-            validity_slots >= 1 && validity_slots <= protocol.max_validity_slots,
-            DistinError::InvalidValidityWindow
-        );
-
-        // Charge the request fee in lamports to the protocol account.
-        if protocol.request_fee > 0 {
-            system_program::transfer(
-                CpiContext::new(
-                    ctx.accounts.system_program.to_account_info(),
-                    SystemTransfer {
-                        from: ctx.accounts.requester.to_account_info(),
-                        to: ctx.accounts.protocol.to_account_info(),
-                    },
-                ),
-                protocol.request_fee,
-            )?;
-        }
-
-        // Snapshot the economic-security target at creation time.
-        let required_stake_weight =
-            required_stake_weight(protocol.total_bonded, protocol.threshold_bps)?;
-
-        let clock = Clock::get()?;
-        let request_id = ctx.accounts.protocol.request_nonce;
-
-        let request = &mut ctx.accounts.request;
-        request.protocol = ctx.accounts.protocol.key();
-        request.requester = ctx.accounts.requester.key();
-        request.request_id = request_id;
-        request.scheme = scheme;
-        request.target_vm = target_vm;
-        request.target_chain_id = target_chain_id;
-        request.message_hash = message_hash;
-        request.threshold = threshold;
-        request.partials_collected = 0;
-        request.stake_weight_collected = 0;
-        request.required_stake_weight = required_stake_weight;
-        request.created_slot = clock.slot;
-        request.expiry_slot = clock
-            .slot
-            .checked_add(validity_slots)
-            .ok_or(DistinError::MathOverflow)?;
-        request.status = RequestStatus::Pending;
-        request.aggregate_sig = [0u8; 64];
-        request.bump = ctx.bumps.request;
-
-        let protocol = &mut ctx.accounts.protocol;
-        protocol.request_nonce = protocol
-            .request_nonce
-            .checked_add(1)
-            .ok_or(DistinError::MathOverflow)?;
-
-        emit!(SigningRequestCreated {
-            request: request.key(),
-            request_id,
+        post_signing_request(
+            &mut ctx.accounts.protocol,
+            &mut ctx.accounts.request,
+            ctx.accounts.requester.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.bumps.request,
             scheme,
             target_vm,
             target_chain_id,
+            message_hash,
+            threshold,
+            validity_slots,
+        )
+    }
+
+    /// User: post a signing intent through their registered wallet identity.
+    ///
+    /// Same intent semantics as `create_signing_request`, plus the requester
+    /// guardrail: a `Wallet` PDA must exist for THIS requester. Posting against
+    /// another user's identity is impossible at the account layer — the wallet
+    /// PDA is derived from the requester's own key, and the stored authority is
+    /// re-checked. The legacy permissionless path stays live for the current
+    /// single-group-key deployment; operators cut over to gated-only requests
+    /// via `DISTIN_REQUIRE_WALLET` once clients have migrated.
+    pub fn create_wallet_request(
+        ctx: Context<CreateWalletRequest>,
+        _client_nonce: u64,
+        scheme: SignatureScheme,
+        target_vm: TargetVm,
+        target_chain_id: u64,
+        message_hash: [u8; 32],
+        threshold: u16,
+        validity_slots: u64,
+    ) -> Result<()> {
+        post_signing_request(
+            &mut ctx.accounts.protocol,
+            &mut ctx.accounts.request,
+            ctx.accounts.requester.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.bumps.request,
+            scheme,
+            target_vm,
+            target_chain_id,
+            message_hash,
+            threshold,
+            validity_slots,
+        )
+    }
+
+    /// Admin: authorize a requester identity for wallet-gated signing requests.
+    ///
+    /// `authority` is an instruction argument rather than a signer so the admin
+    /// can provision a user without their participation; the user proves control
+    /// of the key later by signing `create_wallet_request` with it.
+    pub fn register_wallet(ctx: Context<RegisterWallet>, authority: Pubkey) -> Result<()> {
+        require!(!ctx.accounts.protocol.paused, DistinError::ProtocolPaused);
+        require_keys_neq!(authority, Pubkey::default(), DistinError::Unauthorized);
+
+        let clock = Clock::get()?;
+        let wallet = &mut ctx.accounts.wallet;
+        wallet.protocol = ctx.accounts.protocol.key();
+        wallet.authority = authority;
+        wallet.registered_slot = clock.slot;
+        wallet.bump = ctx.bumps.wallet;
+
+        emit!(WalletRegistered {
+            wallet: wallet.key(),
+            authority,
+        });
+        Ok(())
+    }
+
+    /// Admin: revoke a requester identity. Closes the wallet PDA, so the next
+    /// `create_wallet_request` from that authority fails at account resolution.
+    pub fn revoke_wallet(ctx: Context<RevokeWallet>) -> Result<()> {
+        emit!(WalletRevoked {
+            wallet: ctx.accounts.wallet.key(),
+            authority: ctx.accounts.wallet.authority,
         });
         Ok(())
     }
@@ -604,6 +612,98 @@ pub mod distin {
         );
         Ok(())
     }
+}
+
+/// Shared body of `create_signing_request` / `create_wallet_request`: validate
+/// the intent, charge the fee, snapshot the economic target and write the
+/// request. The two entry points differ only in the authorization accounts
+/// their `Accounts` structs resolve (the wallet gate), never in intent
+/// semantics — keeping this in one place guarantees that.
+#[allow(clippy::too_many_arguments)]
+fn post_signing_request<'info>(
+    protocol_acc: &mut Account<'info, Protocol>,
+    request: &mut Account<'info, SigningRequest>,
+    requester: AccountInfo<'info>,
+    system_program: AccountInfo<'info>,
+    request_bump: u8,
+    scheme: SignatureScheme,
+    target_vm: TargetVm,
+    target_chain_id: u64,
+    message_hash: [u8; 32],
+    threshold: u16,
+    validity_slots: u64,
+) -> Result<()> {
+    require!(!protocol_acc.paused, DistinError::ProtocolPaused);
+    require!(
+        protocol_acc.operator_count > 0,
+        DistinError::NoActiveOperators
+    );
+    require!(
+        message_hash.iter().any(|b| *b != 0),
+        DistinError::EmptyMessageHash
+    );
+    require!(
+        threshold >= 1 && (threshold as u32) <= protocol_acc.operator_count,
+        DistinError::InvalidThreshold
+    );
+    require!(
+        validity_slots >= 1 && validity_slots <= protocol_acc.max_validity_slots,
+        DistinError::InvalidValidityWindow
+    );
+
+    // Charge the request fee in lamports to the protocol account.
+    if protocol_acc.request_fee > 0 {
+        system_program::transfer(
+            CpiContext::new(
+                system_program,
+                SystemTransfer {
+                    from: requester.clone(),
+                    to: protocol_acc.to_account_info(),
+                },
+            ),
+            protocol_acc.request_fee,
+        )?;
+    }
+
+    // Snapshot the economic-security target at creation time.
+    let required = required_stake_weight(protocol_acc.total_bonded, protocol_acc.threshold_bps)?;
+
+    let clock = Clock::get()?;
+    let request_id = protocol_acc.request_nonce;
+
+    request.protocol = protocol_acc.key();
+    request.requester = requester.key();
+    request.request_id = request_id;
+    request.scheme = scheme;
+    request.target_vm = target_vm;
+    request.target_chain_id = target_chain_id;
+    request.message_hash = message_hash;
+    request.threshold = threshold;
+    request.partials_collected = 0;
+    request.stake_weight_collected = 0;
+    request.required_stake_weight = required;
+    request.created_slot = clock.slot;
+    request.expiry_slot = clock
+        .slot
+        .checked_add(validity_slots)
+        .ok_or(DistinError::MathOverflow)?;
+    request.status = RequestStatus::Pending;
+    request.aggregate_sig = [0u8; 64];
+    request.bump = request_bump;
+
+    protocol_acc.request_nonce = protocol_acc
+        .request_nonce
+        .checked_add(1)
+        .ok_or(DistinError::MathOverflow)?;
+
+    emit!(SigningRequestCreated {
+        request: request.key(),
+        request_id,
+        scheme,
+        target_vm,
+        target_chain_id,
+    });
+    Ok(())
 }
 
 /// Translate a bonded LST amount into a SOL-denominated economic weight.
@@ -920,6 +1020,90 @@ pub struct CreateSigningRequest<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Accounts for `create_wallet_request` — the wallet-gated intent path.
+/// The wallet PDA is derived from the requester's own key AND its stored
+/// authority is re-checked, so a third party cannot post a request bound to
+/// someone else's identity even by fabricating account inputs.
+#[derive(Accounts)]
+#[instruction(client_nonce: u64)]
+pub struct CreateWalletRequest<'info> {
+    #[account(mut)]
+    pub requester: Signer<'info>,
+
+    #[account(mut, seeds = [PROTOCOL_SEED], bump = protocol.bump)]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        seeds = [WALLET_SEED, protocol.key().as_ref(), requester.key().as_ref()],
+        bump = wallet.bump,
+        constraint = wallet.authority == requester.key() @ DistinError::WalletNotRegistered,
+        has_one = protocol @ DistinError::Unauthorized
+    )]
+    pub wallet: Account<'info, Wallet>,
+
+    #[account(
+        init,
+        payer = requester,
+        space = 8 + SigningRequest::INIT_SPACE,
+        seeds = [
+            REQUEST_SEED,
+            requester.key().as_ref(),
+            client_nonce.to_le_bytes().as_ref()
+        ],
+        bump
+    )]
+    pub request: Account<'info, SigningRequest>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(authority: Pubkey)]
+pub struct RegisterWallet<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [PROTOCOL_SEED],
+        bump = protocol.bump,
+        has_one = admin @ DistinError::Unauthorized
+    )]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        init,
+        payer = admin,
+        space = 8 + Wallet::INIT_SPACE,
+        seeds = [WALLET_SEED, protocol.key().as_ref(), authority.as_ref()],
+        bump
+    )]
+    pub wallet: Account<'info, Wallet>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RevokeWallet<'info> {
+    #[account(mut)]
+    pub admin: Signer<'info>,
+
+    #[account(
+        seeds = [PROTOCOL_SEED],
+        bump = protocol.bump,
+        has_one = admin @ DistinError::Unauthorized
+    )]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        mut,
+        has_one = protocol @ DistinError::Unauthorized,
+        seeds = [WALLET_SEED, protocol.key().as_ref(), wallet.authority.as_ref()],
+        bump = wallet.bump,
+        close = admin
+    )]
+    pub wallet: Account<'info, Wallet>,
+}
+
 #[derive(Accounts)]
 pub struct SubmitPartial<'info> {
     #[account(mut)]
@@ -1025,6 +1209,18 @@ pub struct OperatorSlashed {
     pub operator: Pubkey,
     pub amount: u64,
     pub reason: u8,
+}
+
+#[event]
+pub struct WalletRegistered {
+    pub wallet: Pubkey,
+    pub authority: Pubkey,
+}
+
+#[event]
+pub struct WalletRevoked {
+    pub wallet: Pubkey,
+    pub authority: Pubkey,
 }
 
 #[event]

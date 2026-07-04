@@ -175,6 +175,32 @@ the source with `=== ... point ===` banners.
      threat model below. The on-chain *effect* (move collateral, jail, rebalance
      weight) is identical between the two paths; only the authorization differs.
 
+5. **Requester authorization (the wallet gate).** `create_signing_request` is
+   *permissionless by design*: anyone who pays the fee can post any
+   `message_hash`, and the operators decide what they sign. While the protocol
+   runs one shared group key, that means requester identity — WHO may have
+   messages signed with the group key — is a policy the chain did not enforce.
+   The wallet-gated path closes this:
+   - `register_wallet` / `revoke_wallet` (admin-gated) maintain an on-chain
+     allowlist of requester identities (`Wallet` PDA per authority). Admin-gated
+     because the group key is protocol-owned today; when per-user group keys
+     land, registration moves into the keygen flow and becomes self-serve.
+   - `create_wallet_request` is the gated twin of `create_signing_request`: the
+     `Wallet` PDA is derived from the requester's own signing key and its stored
+     authority is re-checked, so posting a request bound to someone else's
+     identity is impossible at the account layer (verified in
+     `tests-litesvm/tests/wallet_gate.rs`, including the substituted-account
+     attack).
+   - The signer daemon fails closed behind `DISTIN_REQUIRE_WALLET=1`: it skips
+     any pending request whose requester has no registered wallet, whichever
+     instruction created it (second line of defense behind the on-chain
+     constraint).
+   **Migration order:** upgrade program (additive; no existing account layout
+   or instruction changes) → clients switch to `create_wallet_request` → flip
+   `DISTIN_REQUIRE_WALLET=1` on the daemon → retire the legacy path in a later
+   upgrade. Until the flag flips, the legacy permissionless path remains live
+   deliberately, so the running devnet flow is never broken mid-migration.
+
 ## M9 identifiable-abort — threat model (precise)
 
 `slash_operator_attested` carries GG20's own culprit attribution on-chain. When a

@@ -18,6 +18,8 @@ pub const OPERATOR_SEED: &[u8] = b"operator";
 pub const REQUEST_SEED: &[u8] = b"request";
 /// PDA seed for a partial signature: `[PARTIAL_SEED, request, operator]`.
 pub const PARTIAL_SEED: &[u8] = b"partial";
+/// PDA seed for an authorized requester wallet: `[WALLET_SEED, protocol, authority]`.
+pub const WALLET_SEED: &[u8] = b"wallet";
 
 /// Threshold-signature scheme branched per destination VM family.
 #[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]
@@ -165,6 +167,29 @@ pub struct SigningRequest {
     pub status: RequestStatus,
     /// Running aggregate signature accumulator, published on finalization.
     pub aggregate_sig: [u8; 64],
+    /// PDA bump.
+    pub bump: u8,
+}
+
+/// An authorized requester identity for wallet-gated signing requests.
+///
+/// While the protocol operates a single shared group key, WHO may have
+/// messages signed with it is an explicit allowlist: registration is
+/// admin-gated because the key is protocol-owned. When per-user group keys
+/// land, registration moves into the keygen flow and becomes self-serve.
+///
+/// Seeds: `[WALLET_SEED, protocol, authority]`.
+/// Space (INIT_SPACE): protocol 32 + authority 32 + registered_slot 8 + bump 1
+/// = 73 bytes (+8 disc).
+#[account]
+#[derive(InitSpace)]
+pub struct Wallet {
+    /// Owning protocol.
+    pub protocol: Pubkey,
+    /// The authority allowed to post wallet-gated signing requests.
+    pub authority: Pubkey,
+    /// Slot the wallet was registered.
+    pub registered_slot: u64,
     /// PDA bump.
     pub bump: u8,
 }
