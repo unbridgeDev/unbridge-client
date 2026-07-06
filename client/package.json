@@ -1,0 +1,39 @@
+{
+  "name": "@unbridge/client-scripts",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Node.js CLI scripts for the Unbridge shielded-pool client: witness generation, FROST signing, tx submission.",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build:circuits": "./scripts/build.sh",
+    "ceremony": "./scripts/ceremony.sh"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.4.0",
+    "@solana/web3.js": "^1.95.0",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unbridgeDev/unbridge.git",
+    "directory": "client"
+  },
+  "author": {
+    "name": "Unbridge",
+    "url": "https://unbridge.dev"
+  },
+  "license": "MIT",
+  "keywords": [
+    "solana",
+    "privacy",
+    "shielded-pool",
+    "frost",
+    "groth16",
+    "poseidon",
+    "multisig"
+  ]
+}
