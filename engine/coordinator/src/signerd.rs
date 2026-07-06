@@ -1153,14 +1153,65 @@ impl FrostNetSet {
         let ops = (1..=N)
             .map(|i| read_or_make_sealed_keypair(&format!("{base}/op{i}.json")))
             .collect();
+        let ops_dir = format!("{base}/operators");
+        // The per-operator mTLS configs (operators/op{idx}.json) store share/cert
+        // paths as ABSOLUTE paths, frozen at `bootstrap-frostnet` time on whatever
+        // host generated them. When the sealed key material is shipped to a
+        // different host (e.g. baked into the Fly image from a mac), those paths
+        // no longer resolve and every frost-operator aborts at config load. Re-root
+        // each path field at the live ops_dir so the set is host-portable and this
+        // self-heals on every daemon start.
+        normalize_operator_configs(&ops_dir);
         Some(FrostNetSet {
             ops,
             bin_dir: std::env::var("DISTIN_FROSTNET_BIN_DIR")
                 .unwrap_or_else(|_| format!("{base}/bin")),
-            ops_dir: format!("{base}/operators"),
+            ops_dir,
             log_dir: format!("{base}/logs"),
             group_pk,
         })
+    }
+}
+
+/// Rewrite the absolute path fields in each `operators/op{idx}.json` so they
+/// point at `ops_dir` on THIS host. Only the filename of each stored path is
+/// kept (every field points into the operators dir); `cert_dir` becomes
+/// `ops_dir` itself. Idempotent: files already correct are left untouched.
+fn normalize_operator_configs(ops_dir: &str) {
+    let rebase = |stored: &str| -> String {
+        let name = std::path::Path::new(stored)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        format!("{ops_dir}/{name}")
+    };
+    for idx in 0..3 {
+        let path = format!("{ops_dir}/op{idx}.json");
+        let Ok(raw) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(mut cfg) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        let mut changed = false;
+        for field in ["share_path", "ca_cert", "leaf_cert"] {
+            if let Some(v) = cfg.get(field).and_then(|v| v.as_str()) {
+                let fixed = rebase(v);
+                if fixed != v {
+                    cfg[field] = serde_json::Value::String(fixed);
+                    changed = true;
+                }
+            }
+        }
+        if cfg.get("cert_dir").and_then(|v| v.as_str()) != Some(ops_dir) {
+            cfg["cert_dir"] = serde_json::Value::String(ops_dir.to_string());
+            changed = true;
+        }
+        if changed {
+            if let Ok(s) = serde_json::to_string_pretty(&cfg) {
+                let _ = std::fs::write(&path, s);
+            }
+        }
     }
 }
 
