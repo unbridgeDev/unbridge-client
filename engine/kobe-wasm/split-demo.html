@@ -101,6 +101,17 @@
 
   <div class="result" id="result"></div>
 
+  <div class="recovery" id="spend">
+    <h3>Move real funds, non-custodially</h3>
+    <p class="rec-lede">Your custody group key is a real Solana address. Fund it with devnet SOL, then send from it: the transaction is signed by the same 2-of-2, so the operators cannot move a lamport without your share. Real chain, real transfer, no bridge.</p>
+    <p class="rec-lede" id="addr-line" style="font-family:var(--mono);font-size:13px;color:var(--ink);word-break:break-all;"></p>
+    <div class="rec-row">
+      <button id="fund" disabled>Get devnet SOL</button>
+      <button id="send" disabled>Send 0.005 SOL from it</button>
+      <span class="rec-hint" id="spend-hint" style="flex:1 1 160px;"></span>
+    </div>
+  </div>
+
   <div class="recovery" id="bind">
     <h3>Bind to your Solana account</h3>
     <p class="rec-lede">Register this wallet's group key to your Solana identity on-chain, so the protocol and any relayer can tie your account to the key your shares sign under. It is an ordinary account you control; the shares behind it are never assembled.</p>
@@ -215,7 +226,77 @@
     $("backup").disabled = false;
     $("bind").classList.add("on");
     $("bind-btn").disabled = false;
+    // the custody group key IS a Solana address
+    $("spend").classList.add("on");
+    $("fund").disabled = false;
+    $("send").disabled = false;
+    if (window.solanaWeb3 && W) {
+      const addr = new window.solanaWeb3.PublicKey(hexToBytes(W.group_pk)).toBase58();
+      $("addr-line").textContent = "custody address: " + addr;
+    }
   }
+
+  const setSpendHint = (t, kind) => { const h = $("spend-hint"); h.textContent = t; h.className = "rec-hint" + (kind ? " " + kind : ""); };
+  const custodyAddress = () => new window.solanaWeb3.PublicKey(hexToBytes(W.group_pk));
+
+  // Sign an arbitrary message with the 2-of-2 (browser + hosted signer). Reused
+  // for real chain transactions: `message` is the exact bytes the chain verifies.
+  async function cosign(msgHex) {
+    const session = rndHex(8);
+    const u1 = JSON.parse(frost.round1(W.user_kp));
+    const n1 = await post("/round1", { session });
+    if (!n1.ok) throw new Error("signer round1");
+    const u2 = JSON.parse(frost.round2(W.user_kp, u1.nonces, u1.commitments, n1.net_commit, msgHex));
+    const n2 = await post("/round2", { session, user_commit: u1.commitments, message: msgHex });
+    if (!u2.ok || !n2.ok) throw new Error("round2");
+    const agg = JSON.parse(frost.aggregate(u1.commitments, n1.net_commit, msgHex, u2.share, n2.net_share, W.pubkey_pkg));
+    if (!agg.verified) throw new Error("aggregate did not verify");
+    return agg.signature; // 64-byte hex Ed25519 signature
+  }
+
+  $("fund").addEventListener("click", async () => {
+    if (!W) return;
+    const web3 = window.solanaWeb3;
+    $("fund").disabled = true;
+    setSpendHint("requesting devnet SOL…");
+    try {
+      const conn = new web3.Connection("https://api.devnet.solana.com", "confirmed");
+      const sig = await conn.requestAirdrop(custodyAddress(), 20_000_000);
+      await conn.confirmTransaction(sig, "confirmed");
+      const bal = await conn.getBalance(custodyAddress());
+      setSpendHint("funded: " + (bal / 1e9).toFixed(3) + " SOL in your custody wallet", "good");
+    } catch (e) {
+      setSpendHint("devnet faucet is rate-limited right now, try again in a moment", "bad");
+    } finally { $("fund").disabled = false; }
+  });
+
+  $("send").addEventListener("click", async () => {
+    if (!W) return;
+    const web3 = window.solanaWeb3;
+    $("send").disabled = true;
+    try {
+      const conn = new web3.Connection("https://api.devnet.solana.com", "confirmed");
+      const custody = custodyAddress();
+      const bal = await conn.getBalance(custody);
+      if (bal < 6_000_000) { setSpendHint("fund the wallet first (Get devnet SOL)", "bad"); $("send").disabled = false; return; }
+      const recipient = web3.Keypair.generate().publicKey;
+      const tx = new web3.Transaction().add(web3.SystemProgram.transfer({ fromPubkey: custody, toPubkey: recipient, lamports: 5_000_000 }));
+      tx.feePayer = custody;
+      tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+      const msgHex = bytesToHex(tx.serializeMessage());
+      setSpendHint("signing the Solana transaction with your 2-of-2…");
+      const sigHex = await cosign(msgHex);
+      tx.addSignature(custody, hexToBytes(sigHex));
+      setSpendHint("broadcasting to Solana devnet…");
+      const txsig = await conn.sendRawTransaction(tx.serialize());
+      await conn.confirmTransaction(txsig, "confirmed");
+      const res = $("result"); res.className = "result show good";
+      res.innerHTML = '<div class="big good-t">✓ 0.005 SOL moved, signed non-custodially.</div><div class="sig">tx ' + txsig + '</div>';
+      setSpendHint("real SOL left your custody wallet. the operators never touched it.", "good");
+    } catch (e) {
+      setSpendHint("send failed: " + String(e?.message ?? e).slice(0, 70), "bad");
+    } finally { $("send").disabled = false; }
+  });
 
   // Bind the custody group key to the user's Solana identity on-chain via the
   // program's register_custody_key. Phantom signs; we send to devnet ourselves
@@ -225,6 +306,7 @@
   const DEVNET_RPC = "https://api.devnet.solana.com";
   const D_REGISTER_CUSTODY = [219, 180, 151, 52, 171, 33, 112, 241];
   const hexToBytes = (h) => Uint8Array.from(h.match(/.{2}/g).map((b) => parseInt(b, 16)));
+  const bytesToHex = (u) => [...new Uint8Array(u)].map((b) => b.toString(16).padStart(2, "0")).join("");
   const setBindHint = (t, kind) => { const h = $("bind-hint"); h.textContent = t; h.className = "rec-hint" + (kind ? " " + kind : ""); };
 
   $("bind-btn").addEventListener("click", async () => {
