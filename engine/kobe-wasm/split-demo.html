@@ -101,6 +101,15 @@
 
   <div class="result" id="result"></div>
 
+  <div class="recovery" id="bind">
+    <h3>Bind to your Solana account</h3>
+    <p class="rec-lede">Register this wallet's group key to your Solana identity on-chain, so the protocol and any relayer can tie your account to the key your shares sign under. It is an ordinary account you control; the shares behind it are never assembled.</p>
+    <div class="rec-row">
+      <button id="bind-btn" disabled>Connect Phantom and bind</button>
+      <span class="rec-hint" id="bind-hint" style="flex:1 1 200px;"></span>
+    </div>
+  </div>
+
   <div class="recovery" id="recovery">
     <h3>Recovery</h3>
     <p class="rec-lede">Your share lives only in this page. Back it up, encrypted with a passphrase, so losing this device does not lose the wallet. The backup is useless to anyone without your passphrase, and the signer never sees it.</p>
@@ -119,6 +128,7 @@
   <p class="note"><b>What this is.</b> The signer process stands in for the operator network. In production its share is produced by the on-chain operator set. The property does not change: hand over every operator secret and your funds still do not move without the share you hold, on this device or in your encrypted backup.</p>
 </div>
 
+<script src="./web3.iife.min.js"></script>
 <script type="module">
   import init, * as frost from "./pkg-web/kobe_wasm.js";
 
@@ -203,7 +213,67 @@
   function enableRecovery() {
     $("recovery").classList.add("on");
     $("backup").disabled = false;
+    $("bind").classList.add("on");
+    $("bind-btn").disabled = false;
   }
+
+  // Bind the custody group key to the user's Solana identity on-chain via the
+  // program's register_custody_key. Phantom signs; we send to devnet ourselves
+  // so the user's Phantom network setting does not matter. The group key is
+  // public; this only records "this Solana account controls this group key".
+  const PROGRAM_ID_STR = "4xy9dYHfAzi7cAcX5JHxNR6EoMJ9PGfeQDMHx6YUQQM6";
+  const DEVNET_RPC = "https://api.devnet.solana.com";
+  const D_REGISTER_CUSTODY = [219, 180, 151, 52, 171, 33, 112, 241];
+  const hexToBytes = (h) => Uint8Array.from(h.match(/.{2}/g).map((b) => parseInt(b, 16)));
+  const setBindHint = (t, kind) => { const h = $("bind-hint"); h.textContent = t; h.className = "rec-hint" + (kind ? " " + kind : ""); };
+
+  $("bind-btn").addEventListener("click", async () => {
+    if (!W) return;
+    const web3 = window.solanaWeb3;
+    const provider = window.solana;
+    if (!web3) { setBindHint("web3 failed to load", "bad"); return; }
+    if (!provider) { setBindHint("no Solana wallet found. install Phantom.", "bad"); return; }
+    try {
+      $("bind-btn").disabled = true;
+      setBindHint("connecting Phantom…");
+      const resp = await provider.connect();
+      const authority = new web3.PublicKey((resp.publicKey ?? provider.publicKey).toString());
+      const programId = new web3.PublicKey(PROGRAM_ID_STR);
+      const enc = (s) => new TextEncoder().encode(s);
+      const [protocol] = web3.PublicKey.findProgramAddressSync([enc("protocol")], programId);
+      const [custody] = web3.PublicKey.findProgramAddressSync([enc("custody"), protocol.toBuffer(), authority.toBuffer()], programId);
+      const conn = new web3.Connection(DEVNET_RPC, "confirmed");
+
+      const existing = await conn.getAccountInfo(custody);
+      if (existing) { setBindHint("already bound: " + short(W.group_pk) + " → " + authority.toString().slice(0, 8) + "…", "good"); return; }
+
+      const data = new Uint8Array([...D_REGISTER_CUSTODY, ...hexToBytes(W.group_pk)]);
+      const ix = new web3.TransactionInstruction({
+        programId,
+        keys: [
+          { pubkey: authority, isSigner: true, isWritable: true },
+          { pubkey: protocol, isSigner: false, isWritable: false },
+          { pubkey: custody, isSigner: false, isWritable: true },
+          { pubkey: web3.SystemProgram.programId, isSigner: false, isWritable: false },
+        ],
+        data,
+      });
+      const tx = new web3.Transaction().add(ix);
+      tx.feePayer = authority;
+      tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+      setBindHint("approve in Phantom…");
+      const signed = await provider.signTransaction(tx);
+      const sig = await conn.sendRawTransaction(signed.serialize());
+      await conn.confirmTransaction(sig, "confirmed");
+      setBindHint("bound on-chain: " + authority.toString().slice(0, 8) + "… controls group " + short(W.group_pk), "good");
+    } catch (e) {
+      const msg = String(e?.message ?? e);
+      if (/insufficient|0x1\b|debit/.test(msg)) setBindHint("bind failed: your Solana account needs a little devnet SOL for rent.", "bad");
+      else setBindHint("bind cancelled or failed: " + msg.slice(0, 80), "bad");
+    } finally {
+      $("bind-btn").disabled = false;
+    }
+  });
 
   // Back up: encrypt the user share with a passphrase and download it. The file
   // also carries the public pubkey package + wallet id so a restore can rejoin.
