@@ -96,17 +96,21 @@
 <script type="module">
   import init, * as frost from "./pkg-web/kobe_wasm.js";
 
-  const SIGNER = "http://localhost:4700";
+  // Signer URL: window.SIGNER_URL if set (injected by the host page), else local.
+  const SIGNER = (window.SIGNER_URL || "http://localhost:4700").replace(/\/$/, "");
   const $ = (id) => document.getElementById(id);
   const steps = [...document.querySelectorAll("#steps li")];
   const markStep = (i) => steps[i]?.classList.add("done");
   const setStatus = (t) => ($("status").textContent = t);
-  const post = async (path, obj) => {
-    const r = await fetch(SIGNER + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(obj) });
-    return r.json();
-  };
   const rndHex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
   const short = (h) => (h ? h.slice(0, 16) + "…" + h.slice(-8) : "");
+
+  // A per-visitor wallet id so many people can use the demo at once.
+  const WALLET_ID = rndHex(16);
+  const post = async (path, obj) => {
+    const r = await fetch(SIGNER + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ walletId: WALLET_ID, ...obj }) });
+    return r.json();
+  };
 
   // Wallet state. user_kp NEVER leaves this closure.
   let W = null;

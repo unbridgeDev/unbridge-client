@@ -45,9 +45,24 @@ sees the other's share, not even at wallet creation. `node dkg-test.mjs` proves
 it (both parties derive the same group key independently, then co-sign). The
 split demo's "Create wallet" uses this: each process generates its own share.
 
+## Live demo
+
+The split demo is live at **unbridge.dev/custody**: your share is generated and
+held in the browser, the network share lives in a hosted signer process, and the
+"make the server sign alone" button fails. The signer is a small standalone
+service (`network-signer.mjs`, multi-tenant, demo-only shares, no funds or
+on-chain keys) deployed with `Dockerfile.signer` + `fly.signer.toml`:
+
+```
+# deploy the demo signer (from a dir holding network-signer.mjs + pkg/)
+wasm-pack build --target nodejs --out-dir pkg
+flyctl deploy --app unbridge-custody-demo --dockerfile Dockerfile.signer
+```
+
 Phase 1 (done): FROST proven to run in the browser.
 Phase 2 (done): genuine browser + signer-process split, network-alone blocked.
 Phase 3 (done): 2-party DKG (no dealer), and per-user group-key registration
 on-chain via the program's `register_custody_key`.
+Live (done): the split demo hosted at unbridge.dev/custody.
 Next: a backup share (2-of-3) for recovery, and wiring the on-chain binding into
 the browser flow.
