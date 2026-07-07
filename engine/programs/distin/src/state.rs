@@ -20,6 +20,8 @@ pub const REQUEST_SEED: &[u8] = b"request";
 pub const PARTIAL_SEED: &[u8] = b"partial";
 /// PDA seed for an authorized requester wallet: `[WALLET_SEED, protocol, authority]`.
 pub const WALLET_SEED: &[u8] = b"wallet";
+/// PDA seed for a user's custody key binding: `[CUSTODY_SEED, protocol, authority]`.
+pub const CUSTODY_SEED: &[u8] = b"custody";
 
 /// Threshold-signature scheme branched per destination VM family.
 #[derive(AnchorSerialize, AnchorDeserialize, InitSpace, Clone, Copy, PartialEq, Eq, Debug)]
@@ -189,6 +191,33 @@ pub struct Wallet {
     /// The authority allowed to post wallet-gated signing requests.
     pub authority: Pubkey,
     /// Slot the wallet was registered.
+    pub registered_slot: u64,
+    /// PDA bump.
+    pub bump: u8,
+}
+
+/// Binds a user's Solana identity to the per-user FROST group public key their
+/// wallet threshold-signs with. Additive to `Wallet`: the wallet gate governs
+/// WHO may request signatures; this records WHICH group key a user's shares
+/// produce, so the protocol and a relayer can tie a Solana account to the
+/// Ed25519 key the destination chains verify. Registered self-serve after the
+/// user runs a 2-party DKG (the group key is public; the shares are not, and
+/// are never assembled).
+///
+/// Seeds: `[CUSTODY_SEED, protocol, authority]`.
+/// Space (INIT_SPACE): protocol 32 + authority 32 + group_pubkey 32
+/// + registered_slot 8 + bump 1 = 105 bytes (+8 disc).
+#[account]
+#[derive(InitSpace)]
+pub struct CustodyKey {
+    /// Owning protocol.
+    pub protocol: Pubkey,
+    /// The user's Solana identity that controls this custody key.
+    pub authority: Pubkey,
+    /// The 32-byte Ed25519 group public key the user's threshold shares sign
+    /// under. Public by design; the shares behind it are never assembled.
+    pub group_pubkey: [u8; 32],
+    /// Slot the key was registered.
     pub registered_slot: u64,
     /// PDA bump.
     pub bump: u8,

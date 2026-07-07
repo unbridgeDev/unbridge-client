@@ -471,6 +471,45 @@ pub mod distin {
         Ok(())
     }
 
+    /// Self-serve: bind the caller's Solana identity to their per-user FROST
+    /// group public key. Called once after the user's 2-party DKG produces the
+    /// group key. The key is public; the shares behind it are never assembled.
+    /// The CustodyKey PDA derives from the caller's own key, so a user can only
+    /// register a binding for their own identity.
+    pub fn register_custody_key(
+        ctx: Context<RegisterCustodyKey>,
+        group_pubkey: [u8; 32],
+    ) -> Result<()> {
+        require!(!ctx.accounts.protocol.paused, DistinError::ProtocolPaused);
+        require!(
+            group_pubkey.iter().any(|b| *b != 0),
+            DistinError::EmptyMessageHash
+        );
+
+        let clock = Clock::get()?;
+        let custody = &mut ctx.accounts.custody;
+        custody.protocol = ctx.accounts.protocol.key();
+        custody.authority = ctx.accounts.authority.key();
+        custody.group_pubkey = group_pubkey;
+        custody.registered_slot = clock.slot;
+        custody.bump = ctx.bumps.custody;
+
+        emit!(CustodyKeyRegistered {
+            authority: custody.authority,
+            group_pubkey,
+        });
+        Ok(())
+    }
+
+    /// Self-serve: close one's own custody-key binding (e.g. before re-keying
+    /// via DKG resharing). Rent returns to the authority.
+    pub fn close_custody_key(ctx: Context<CloseCustodyKey>) -> Result<()> {
+        emit!(CustodyKeyClosed {
+            authority: ctx.accounts.custody.authority,
+        });
+        Ok(())
+    }
+
     /// Admin: revoke a requester identity. Closes the wallet PDA, so the next
     /// `create_wallet_request` from that authority fails at account resolution.
     pub fn revoke_wallet(ctx: Context<RevokeWallet>) -> Result<()> {
@@ -1106,6 +1145,49 @@ pub struct ActivateWallet<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// Accounts for `register_custody_key` — the caller binds their own identity to
+/// their FROST group key. The CustodyKey PDA is derived from the signer's key,
+/// so a user can only register a binding for themselves.
+#[derive(Accounts)]
+pub struct RegisterCustodyKey<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(seeds = [PROTOCOL_SEED], bump = protocol.bump)]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + CustodyKey::INIT_SPACE,
+        seeds = [CUSTODY_SEED, protocol.key().as_ref(), authority.key().as_ref()],
+        bump
+    )]
+    pub custody: Account<'info, CustodyKey>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for `close_custody_key` — the owner closes their own binding.
+#[derive(Accounts)]
+pub struct CloseCustodyKey<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(seeds = [PROTOCOL_SEED], bump = protocol.bump)]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        mut,
+        has_one = authority @ DistinError::Unauthorized,
+        has_one = protocol @ DistinError::Unauthorized,
+        seeds = [CUSTODY_SEED, protocol.key().as_ref(), authority.key().as_ref()],
+        bump = custody.bump,
+        close = authority
+    )]
+    pub custody: Account<'info, CustodyKey>,
+}
+
 #[derive(Accounts)]
 #[instruction(authority: Pubkey)]
 pub struct RegisterWallet<'info> {
@@ -1269,6 +1351,17 @@ pub struct WalletRegistered {
 #[event]
 pub struct WalletRevoked {
     pub wallet: Pubkey,
+    pub authority: Pubkey,
+}
+
+#[event]
+pub struct CustodyKeyRegistered {
+    pub authority: Pubkey,
+    pub group_pubkey: [u8; 32],
+}
+
+#[event]
+pub struct CustodyKeyClosed {
     pub authority: Pubkey,
 }
 

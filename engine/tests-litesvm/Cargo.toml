@@ -32,3 +32,7 @@ path = "tests/slash_attested.rs"
 [[test]]
 name = "wallet_gate"
 path = "tests/wallet_gate.rs"
+
+[[test]]
+name = "custody_key"
+path = "tests/custody_key.rs"
