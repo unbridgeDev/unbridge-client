@@ -54,6 +54,17 @@
   .note { font-size:15px; color:var(--dim); border-left:2px solid var(--line); padding:2px 0 2px 16px; margin:28px 0 0; }
   .note b { color:var(--ink); }
   .status { font-family:var(--mono); font-size:12px; color:var(--dim); margin:8px 0 0; }
+  .recovery { margin:28px 0 0; padding:20px 22px; background:var(--surface); border:1px solid var(--line); border-radius:6px; opacity:.5; pointer-events:none; transition:opacity .2s; }
+  .recovery.on { opacity:1; pointer-events:auto; }
+  .recovery h3 { font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--violet-b); margin:0 0 8px; font-weight:400; }
+  .rec-lede { font-size:15px; color:var(--dim); margin:0 0 16px; }
+  .rec-row { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 10px; align-items:center; }
+  .recovery input[type=password], .recovery input[type=file] { font-family:var(--mono); font-size:13px; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:10px 12px; flex:1 1 180px; min-width:0; }
+  .recovery input:focus-visible { outline:2px solid var(--violet-b); outline-offset:1px; }
+  .recovery button { font-size:13px; padding:10px 16px; flex:none; }
+  .rec-hint { font-size:13px; color:var(--dim); margin:8px 0 0; font-style:italic; }
+  .rec-hint.good { color:var(--green); font-style:normal; }
+  .rec-hint.bad { color:var(--red); font-style:normal; }
 </style>
 </head>
 <body>
@@ -90,7 +101,22 @@
 
   <div class="result" id="result"></div>
 
-  <p class="note"><b>What this is.</b> The signer process is standing in for the operator network. In production its share is itself produced by the on-chain t-of-n operator set, and a backup share covers recovery. The property does not change: hand over every operator secret and your funds still do not move without the share in your browser.</p>
+  <div class="recovery" id="recovery">
+    <h3>Recovery</h3>
+    <p class="rec-lede">Your share lives only in this page. Back it up, encrypted with a passphrase, so losing this device does not lose the wallet. The backup is useless to anyone without your passphrase, and the signer never sees it.</p>
+    <div class="rec-row">
+      <input id="pass" type="password" placeholder="backup passphrase" autocomplete="new-password" />
+      <button id="backup" disabled>Download recovery file</button>
+    </div>
+    <div class="rec-row">
+      <input id="restore-file" type="file" accept=".json,.unbridgekey" />
+      <input id="restore-pass" type="password" placeholder="passphrase" autocomplete="off" />
+      <button id="restore">Restore</button>
+    </div>
+    <p class="rec-hint" id="rec-hint">Tip: after backing up, reload the page and Restore to prove the wallet survives a lost device.</p>
+  </div>
+
+  <p class="note"><b>What this is.</b> The signer process stands in for the operator network. In production its share is produced by the on-chain operator set. The property does not change: hand over every operator secret and your funds still do not move without the share you hold, on this device or in your encrypted backup.</p>
 </div>
 
 <script type="module">
@@ -105,8 +131,9 @@
   const rndHex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
   const short = (h) => (h ? h.slice(0, 16) + "…" + h.slice(-8) : "");
 
-  // A per-visitor wallet id so many people can use the demo at once.
-  const WALLET_ID = rndHex(16);
+  // A per-visitor wallet id so many people can use the demo at once. Mutable so
+  // a restored backup can rejoin its wallet (the network still holds that share).
+  let WALLET_ID = rndHex(16);
   const post = async (path, obj) => {
     const r = await fetch(SIGNER + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ walletId: WALLET_ID, ...obj }) });
     return r.json();
@@ -114,6 +141,29 @@
 
   // Wallet state. user_kp NEVER leaves this closure.
   let W = null;
+
+  // --- encrypted backup of the user share (WebCrypto, PBKDF2 + AES-GCM) ---
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function deriveKey(passphrase, salt) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+  }
+  async function encryptShare(hex, passphrase) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(passphrase, salt);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(hex));
+    return { salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  }
+  async function decryptShare(enc, passphrase) {
+    const key = await deriveKey(passphrase, unb64(enc.salt));
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(enc.iv) }, key, unb64(enc.ct));
+    return new TextDecoder().decode(pt);
+  }
 
   await init();
 
@@ -146,8 +196,69 @@
     markStep(0);
     $("sign").disabled = false;
     $("attack").disabled = false;
+    enableRecovery();
     setStatus("wallet created by DKG. no dealer ever held the whole key.");
   });
+
+  function enableRecovery() {
+    $("recovery").classList.add("on");
+    $("backup").disabled = false;
+  }
+
+  // Back up: encrypt the user share with a passphrase and download it. The file
+  // also carries the public pubkey package + wallet id so a restore can rejoin.
+  $("backup").addEventListener("click", async () => {
+    if (!W) return;
+    const pass = $("pass").value;
+    if (pass.length < 6) { setRecHint("choose a passphrase of at least 6 characters", "bad"); return; }
+    const enc = await encryptShare(W.user_kp, pass);
+    const file = {
+      kind: "unbridge-custody-backup",
+      walletId: WALLET_ID,
+      group_pk: W.group_pk,
+      pubkey_pkg: W.pubkey_pkg,
+      enc,
+    };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "unbridge-" + W.group_pk.slice(0, 8) + ".unbridgekey";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setRecHint("recovery file downloaded. keep it and the passphrase safe.", "good");
+  });
+
+  // Restore: read the file, decrypt with the passphrase, rejoin the wallet.
+  $("restore").addEventListener("click", async () => {
+    const f = $("restore-file").files[0];
+    const pass = $("restore-pass").value;
+    if (!f) { setRecHint("choose a recovery file first", "bad"); return; }
+    if (!pass) { setRecHint("enter the passphrase", "bad"); return; }
+    let file;
+    try { file = JSON.parse(await f.text()); } catch { setRecHint("not a valid recovery file", "bad"); return; }
+    if (file.kind !== "unbridge-custody-backup") { setRecHint("not an Unbridge recovery file", "bad"); return; }
+    let user_kp;
+    try { user_kp = await decryptShare(file.enc, pass); }
+    catch { setRecHint("wrong passphrase, or the file is corrupt", "bad"); return; }
+    WALLET_ID = file.walletId;
+    W = { user_kp, pubkey_pkg: file.pubkey_pkg, group_pk: file.group_pk };
+    $("user-val").textContent = "share restored · group " + short(W.group_pk);
+    $("user-val").classList.remove("empty");
+    $("net-val").textContent = "share held · network share only";
+    $("net-val").classList.remove("empty");
+    markStep(0);
+    $("sign").disabled = false;
+    $("attack").disabled = false;
+    enableRecovery();
+    setRecHint("wallet restored from backup. try Sign a transaction.", "good");
+    setStatus("recovered without the original device. the share came from your encrypted file.");
+  });
+
+  function setRecHint(t, kind) {
+    const h = $("rec-hint");
+    h.textContent = t;
+    h.className = "rec-hint" + (kind ? " " + kind : "");
+  }
 
   $("sign").addEventListener("click", async () => {
     $("sign").disabled = true; $("attack").disabled = true;
