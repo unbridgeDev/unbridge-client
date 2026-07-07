@@ -89,6 +89,226 @@ fn run_selftest(message_hex: &str) -> Result<String, String> {
     ))
 }
 
+// ---------------------------------------------------------------------------
+// Split-party API. Each function touches only ONE party's key material, so the
+// user's share (party 1, browser) and the network's share (party 2, daemon)
+// live on different machines and exchange only serialized commitments and
+// shares. The SigningPackage is rebuilt locally on each side from the two
+// commitments, so it never has to cross the wire.
+// ---------------------------------------------------------------------------
+
+fn err_json(e: impl std::fmt::Display) -> String {
+    format!("{{\"ok\":false,\"error\":\"{}\"}}", e.to_string().replace('"', "'"))
+}
+
+/// 2-of-2 trusted-dealer keygen. Returns hex-encoded key packages for the user
+/// (party 1) and the network (party 2), the shared public-key package, and the
+/// group public key. The caller keeps `user_kp` in the browser and hands
+/// `net_kp` + `pubkey_pkg` to the network signer. (A real 2-party DKG, where
+/// neither side sees the other's share, is the next phase.)
+#[wasm_bindgen]
+pub fn keygen_2of2() -> String {
+    match keygen_inner() {
+        Ok(j) => j,
+        Err(e) => err_json(e),
+    }
+}
+
+fn keygen_inner() -> Result<String, String> {
+    let (shares, pubkey_package) =
+        frost::keys::generate_with_dealer(2, 2, frost::keys::IdentifierList::Default, OsRng)
+            .map_err(|e| e.to_string())?;
+    let mut kps: BTreeMap<Identifier, KeyPackage> = BTreeMap::new();
+    for (i, s) in shares {
+        kps.insert(i, KeyPackage::try_from(s).map_err(|e| e.to_string())?);
+    }
+    let user_kp = kps[&id(USER)].serialize().map_err(|e| e.to_string())?;
+    let net_kp = kps[&id(NETWORK)].serialize().map_err(|e| e.to_string())?;
+    let pk_pkg = pubkey_package.serialize().map_err(|e| e.to_string())?;
+    let group_pk = pubkey_package.verifying_key().serialize().map_err(|e| e.to_string())?;
+    Ok(format!(
+        "{{\"ok\":true,\"user_kp\":\"{}\",\"net_kp\":\"{}\",\"pubkey_pkg\":\"{}\",\"group_pk\":\"{}\"}}",
+        hex::encode(user_kp),
+        hex::encode(net_kp),
+        hex::encode(pk_pkg),
+        hex::encode(group_pk),
+    ))
+}
+
+/// Round 1 for one party: produce nonces (secret, the caller holds these until
+/// round 2) and commitments (shared). Returns `{ nonces, commitments }` hex.
+#[wasm_bindgen]
+pub fn round1(key_package_hex: &str) -> String {
+    match round1_inner(key_package_hex) {
+        Ok(j) => j,
+        Err(e) => err_json(e),
+    }
+}
+
+fn round1_inner(kp_hex: &str) -> Result<String, String> {
+    let kp = KeyPackage::deserialize(&hex::decode(kp_hex).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let (nonces, commitments) = round1::commit(kp.signing_share(), &mut OsRng);
+    let n = nonces.serialize().map_err(|e| e.to_string())?;
+    let c = commitments.serialize().map_err(|e| e.to_string())?;
+    Ok(format!(
+        "{{\"ok\":true,\"nonces\":\"{}\",\"commitments\":\"{}\"}}",
+        hex::encode(n),
+        hex::encode(c)
+    ))
+}
+
+// Rebuild the shared SigningPackage from both parties' commitments + message.
+fn signing_package(
+    user_commit_hex: &str,
+    net_commit_hex: &str,
+    message: &[u8],
+) -> Result<SigningPackage, String> {
+    let uc = round1::SigningCommitments::deserialize(
+        &hex::decode(user_commit_hex).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    let nc = round1::SigningCommitments::deserialize(
+        &hex::decode(net_commit_hex).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut m = BTreeMap::new();
+    m.insert(id(USER), uc);
+    m.insert(id(NETWORK), nc);
+    Ok(SigningPackage::new(m, message))
+}
+
+/// Round 2 for one party: produce its signature share over the shared package,
+/// which is rebuilt locally from both commitments. Returns `{ share }` hex.
+#[wasm_bindgen]
+pub fn round2(
+    key_package_hex: &str,
+    nonces_hex: &str,
+    user_commit_hex: &str,
+    net_commit_hex: &str,
+    message_hex: &str,
+) -> String {
+    match round2_inner(key_package_hex, nonces_hex, user_commit_hex, net_commit_hex, message_hex) {
+        Ok(j) => j,
+        Err(e) => err_json(e),
+    }
+}
+
+fn round2_inner(
+    kp_hex: &str,
+    nonces_hex: &str,
+    uc_hex: &str,
+    nc_hex: &str,
+    msg_hex: &str,
+) -> Result<String, String> {
+    let kp = KeyPackage::deserialize(&hex::decode(kp_hex).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let nonces = round1::SigningNonces::deserialize(&hex::decode(nonces_hex).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let message = hex::decode(msg_hex).map_err(|e| e.to_string())?;
+    let package = signing_package(uc_hex, nc_hex, &message)?;
+    let share = round2::sign(&package, &nonces, &kp).map_err(|e| e.to_string())?;
+    Ok(format!(
+        "{{\"ok\":true,\"share\":\"{}\"}}",
+        hex::encode(share.serialize())
+    ))
+}
+
+/// Aggregate both parties' shares into one signature and verify it against the
+/// group key. Returns `{ signature, verified }`.
+#[wasm_bindgen]
+pub fn aggregate(
+    user_commit_hex: &str,
+    net_commit_hex: &str,
+    message_hex: &str,
+    user_share_hex: &str,
+    net_share_hex: &str,
+    pubkey_pkg_hex: &str,
+) -> String {
+    match aggregate_inner(user_commit_hex, net_commit_hex, message_hex, user_share_hex, net_share_hex, pubkey_pkg_hex) {
+        Ok(j) => j,
+        Err(e) => err_json(e),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn aggregate_inner(
+    uc_hex: &str,
+    nc_hex: &str,
+    msg_hex: &str,
+    us_hex: &str,
+    ns_hex: &str,
+    pk_hex: &str,
+) -> Result<String, String> {
+    let message = hex::decode(msg_hex).map_err(|e| e.to_string())?;
+    let package = signing_package(uc_hex, nc_hex, &message)?;
+    let pubkey_package =
+        PublicKeyPackage::deserialize(&hex::decode(pk_hex).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    let us = round2::SignatureShare::deserialize(&hex::decode(us_hex).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let ns = round2::SignatureShare::deserialize(&hex::decode(ns_hex).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let mut shares = BTreeMap::new();
+    shares.insert(id(USER), us);
+    shares.insert(id(NETWORK), ns);
+    let sig: Signature = frost::aggregate(&package, &shares, &pubkey_package).map_err(|e| e.to_string())?;
+    let sig_bytes = sig.serialize().map_err(|e| e.to_string())?;
+    let verified = pubkey_package.verifying_key().verify(&message, &sig).is_ok();
+    Ok(format!(
+        "{{\"ok\":true,\"signature\":\"{}\",\"verified\":{}}}",
+        hex::encode(sig_bytes),
+        verified
+    ))
+}
+
+/// The network signer trying to finalize ALONE, with only its own share and a
+/// single-party package. Returns `{ signed }`; it must be `false`. This is the
+/// property a live challenge would exercise: hand over every operator secret,
+/// the network still cannot sign without the user's share.
+#[wasm_bindgen]
+pub fn network_sign_alone(
+    net_key_package_hex: &str,
+    net_nonces_hex: &str,
+    net_commit_hex: &str,
+    message_hex: &str,
+    pubkey_pkg_hex: &str,
+) -> String {
+    let attempt = || -> Result<bool, String> {
+        let kp = KeyPackage::deserialize(&hex::decode(net_key_package_hex).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        let nonces = round1::SigningNonces::deserialize(
+            &hex::decode(net_nonces_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let nc = round1::SigningCommitments::deserialize(
+            &hex::decode(net_commit_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let message = hex::decode(message_hex).map_err(|e| e.to_string())?;
+        let pubkey_package =
+            PublicKeyPackage::deserialize(&hex::decode(pubkey_pkg_hex).map_err(|e| e.to_string())?)
+                .map_err(|e| e.to_string())?;
+        // Single-party package: only the network's own commitment.
+        let mut m = BTreeMap::new();
+        m.insert(id(NETWORK), nc);
+        let package = SigningPackage::new(m, &message);
+        let share = round2::sign(&package, &nonces, &kp).map_err(|e| e.to_string())?;
+        let mut shares = BTreeMap::new();
+        shares.insert(id(NETWORK), share);
+        // Aggregate with a below-threshold share set. Must not yield a valid sig.
+        match frost::aggregate(&package, &shares, &pubkey_package) {
+            Ok(sig) => Ok(pubkey_package.verifying_key().verify(&message, &sig).is_ok()),
+            Err(_) => Ok(false),
+        }
+    };
+    match attempt() {
+        Ok(signed) => format!("{{\"ok\":true,\"signed\":{signed}}}"),
+        // An error here is also a failure to sign, which is the safe outcome.
+        Err(_) => "{\"ok\":true,\"signed\":false}".to_string(),
+    }
+}
+
 /// Run FROST round 1 + round 2 over `message` for the given quorum and aggregate.
 /// Fails (returns Err) when the quorum is below the 2-of-2 threshold, which is
 /// exactly how "operators alone cannot sign" manifests.

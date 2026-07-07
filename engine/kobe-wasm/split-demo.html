@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unbridge — the server cannot sign without you</title>
+<style>
+  :root {
+    --bg:#070708; --surface:#0d0d12; --surface2:#121218; --ink:#e7e5df; --strong:#f6f4ef; --dim:#8b877c;
+    --line:#21212a; --violet:#7c6bff; --violet-b:#a596ff; --red:#e5747a; --green:#74d99f; --amber:#c9a24b;
+    --serif: Georgia,"Times New Roman",serif;
+    --sans: system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+    font-size:18px; line-height:1.6; padding:clamp(28px,6vw,72px) 22px 120px; }
+  .wrap { max-width:680px; margin:0 auto; }
+  .eyebrow { font-family:var(--mono); font-size:12.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); margin:0 0 22px; }
+  h1 { font-family:var(--serif); font-weight:400; font-size:clamp(29px,5.2vw,42px); line-height:1.09; letter-spacing:-.01em; color:var(--strong); margin:0 0 18px; text-wrap:balance; }
+  .lede { color:var(--dim); font-size:18px; margin:0 0 30px; }
+  .lede b { color:var(--ink); font-weight:600; }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:0 0 26px; }
+  @media (max-width:560px){ .split { grid-template-columns:1fr; } }
+  .party { background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:16px 18px; }
+  .party h3 { font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin:0 0 10px; font-weight:400; }
+  .party.user h3 { color:var(--violet-b); }
+  .party.net h3 { color:var(--amber); }
+  .party .who { font-size:14px; color:var(--dim); margin:0 0 8px; }
+  .party .val { font-family:var(--mono); font-size:11.5px; color:var(--ink); word-break:break-all; line-height:1.55; min-height:1.5em; }
+  .party .val.empty { color:var(--dim); }
+  .steps { list-style:none; margin:22px 0 0; padding:0; font-family:var(--mono); font-size:14px; }
+  .steps li { display:flex; gap:11px; padding:8px 0; border-bottom:1px solid var(--line); color:var(--dim); align-items:baseline; }
+  .steps li:last-child { border-bottom:0; }
+  .steps li.done { color:var(--ink); }
+  .steps .n { color:var(--dim); flex:none; width:1.4em; }
+  .steps li.done .n { color:var(--green); }
+  .controls { display:flex; gap:12px; flex-wrap:wrap; margin:26px 0 0; }
+  button { font-family:var(--mono); font-size:14px; letter-spacing:.03em; color:var(--strong);
+    background:transparent; border:1px solid var(--violet); border-radius:5px; padding:12px 20px; cursor:pointer; transition:background .15s; }
+  button:hover:not(:disabled) { background:color-mix(in srgb,var(--violet) 18%,transparent); }
+  button.attack { border-color:var(--red); color:var(--red); }
+  button.attack:hover:not(:disabled) { background:color-mix(in srgb,var(--red) 16%,transparent); }
+  button:disabled { opacity:.4; cursor:default; }
+  button:focus-visible { outline:2px solid var(--violet-b); outline-offset:3px; }
+  .result { margin:24px 0 0; padding:16px 18px; border-radius:6px; border:1px solid var(--line); background:var(--surface2); font-family:var(--mono); font-size:14px; min-height:1.5em; display:none; }
+  .result.show { display:block; }
+  .result.good { border-color:color-mix(in srgb,var(--green) 45%,transparent); }
+  .result.bad { border-color:color-mix(in srgb,var(--red) 50%,transparent); }
+  .result .big { font-size:16px; margin-bottom:8px; }
+  .result .good-t { color:var(--green); }
+  .result .bad-t { color:var(--red); }
+  .result .sig { color:var(--dim); word-break:break-all; font-size:11.5px; line-height:1.5; }
+  .note { font-size:15px; color:var(--dim); border-left:2px solid var(--line); padding:2px 0 2px 16px; margin:28px 0 0; }
+  .note b { color:var(--ink); }
+  .status { font-family:var(--mono); font-size:12px; color:var(--dim); margin:8px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Unbridge · split custody · two processes</p>
+  <h1>The server holds a share. It still cannot sign without you.</h1>
+  <p class="lede"><b>Your key share lives in this page and never leaves it.</b> A separate signer process holds the other share. To sign, the two co-operate. The signer, given its full share, cannot finalize alone. This is the whole custody model, running as two real processes.</p>
+
+  <div class="split">
+    <div class="party user">
+      <h3>● This browser (you)</h3>
+      <p class="who">holds the user share</p>
+      <div class="val empty" id="user-val">no wallet yet</div>
+    </div>
+    <div class="party net">
+      <h3>● Signer process :4700</h3>
+      <p class="who">holds the network share</p>
+      <div class="val empty" id="net-val">no wallet yet</div>
+    </div>
+  </div>
+
+  <ul class="steps" id="steps">
+    <li data-s="0"><span class="n">1</span><span>create a 2-of-2 wallet, keep your share, hand the other to the signer</span></li>
+    <li data-s="1"><span class="n">2</span><span>co-sign a transaction: round 1 and round 2 across both processes</span></li>
+    <li data-s="2"><span class="n">3</span><span>aggregate locally and verify as ordinary Ed25519</span></li>
+  </ul>
+
+  <div class="controls">
+    <button id="create">Create wallet</button>
+    <button id="sign" disabled>Sign a transaction</button>
+    <button id="attack" class="attack" disabled>Make the server sign alone</button>
+  </div>
+  <p class="status" id="status"></p>
+
+  <div class="result" id="result"></div>
+
+  <p class="note"><b>What this is.</b> The signer process is standing in for the operator network. In production its share is itself produced by the on-chain t-of-n operator set, and a backup share covers recovery. The property does not change: hand over every operator secret and your funds still do not move without the share in your browser.</p>
+</div>
+
+<script type="module">
+  import init, * as frost from "./pkg-web/kobe_wasm.js";
+
+  const SIGNER = "http://localhost:4700";
+  const $ = (id) => document.getElementById(id);
+  const steps = [...document.querySelectorAll("#steps li")];
+  const markStep = (i) => steps[i]?.classList.add("done");
+  const setStatus = (t) => ($("status").textContent = t);
+  const post = async (path, obj) => {
+    const r = await fetch(SIGNER + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(obj) });
+    return r.json();
+  };
+  const rndHex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const short = (h) => (h ? h.slice(0, 16) + "…" + h.slice(-8) : "");
+
+  // Wallet state. user_kp NEVER leaves this closure.
+  let W = null;
+
+  await init();
+
+  $("create").addEventListener("click", async () => {
+    $("create").disabled = true;
+    setStatus("generating 2-of-2 key…");
+    const kg = JSON.parse(frost.keygen_2of2());
+    if (!kg.ok) { setStatus("keygen failed: " + kg.error); $("create").disabled = false; return; }
+    // hand ONLY the network share + public package to the signer
+    const reg = await post("/register", { net_kp: kg.net_kp, pubkey_pkg: kg.pubkey_pkg, group_pk: kg.group_pk });
+    if (!reg.ok) { setStatus("signer unreachable on :4700 — is network-signer.mjs running?"); $("create").disabled = false; return; }
+    W = { user_kp: kg.user_kp, pubkey_pkg: kg.pubkey_pkg, group_pk: kg.group_pk };
+    $("user-val").textContent = "share held · group " + short(kg.group_pk);
+    $("user-val").classList.remove("empty");
+    $("net-val").textContent = "share held · " + reg.holding;
+    $("net-val").classList.remove("empty");
+    markStep(0);
+    $("sign").disabled = false;
+    $("attack").disabled = false;
+    setStatus("wallet created. the signer holds only the network share.");
+  });
+
+  $("sign").addEventListener("click", async () => {
+    $("sign").disabled = true; $("attack").disabled = true;
+    const res = $("result"); res.className = "result";
+    const message = rndHex(32);
+    const session = rndHex(8);
+    setStatus("round 1: your browser and the signer each commit…");
+    // round 1
+    const u1 = JSON.parse(frost.round1(W.user_kp));           // user nonces stay here
+    const n1 = await post("/round1", { session });            // network commit only
+    if (!n1.ok) { setStatus("signer round1 failed"); $("sign").disabled = false; $("attack").disabled = false; return; }
+    markStep(1);
+    setStatus("round 2: each side signs its share over the shared package…");
+    // round 2
+    const u2 = JSON.parse(frost.round2(W.user_kp, u1.nonces, u1.commitments, n1.net_commit, message));
+    const n2 = await post("/round2", { session, user_commit: u1.commitments, message });
+    if (!u2.ok || !n2.ok) { setStatus("round2 failed"); $("sign").disabled = false; $("attack").disabled = false; return; }
+    // aggregate locally
+    const agg = JSON.parse(frost.aggregate(u1.commitments, n1.net_commit, message, u2.share, n2.net_share, W.pubkey_pkg));
+    markStep(2);
+    res.classList.add("show", agg.verified ? "good" : "bad");
+    res.innerHTML = agg.verified
+      ? `<div class="big good-t">✓ Signed. Both shares co-operated.</div><div class="sig">signature ${agg.signature}</div>`
+      : `<div class="big bad-t">signature did not verify</div>`;
+    setStatus("done. neither process ever held the other's share.");
+    $("sign").disabled = false; $("attack").disabled = false;
+  });
+
+  $("attack").addEventListener("click", async () => {
+    $("attack").disabled = true; $("sign").disabled = true;
+    const res = $("result"); res.className = "result";
+    const message = rndHex(32);
+    setStatus("asking the signer to finalize alone, with its full share…");
+    const a = await post("/sign-alone", { message });
+    res.classList.add("show", a.signed ? "bad" : "good");
+    res.innerHTML = a.signed
+      ? `<div class="big bad-t">✗ the server produced a signature alone — model broken</div>`
+      : `<div class="big good-t">✓ Blocked. The server has its whole share and still cannot sign without yours.</div>`;
+    setStatus("this is the guarantee: the operators cannot move your funds.");
+    $("attack").disabled = false; $("sign").disabled = false;
+  });
+</script>
+</body>
+</html>
