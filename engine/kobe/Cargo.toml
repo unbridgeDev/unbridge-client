@@ -49,3 +49,7 @@ ed25519-dalek = "2.1"
 [[example]]
 name = "frost_demo"
 path = "examples/frost_demo.rs"
+
+[[example]]
+name = "custody_demo"
+path = "examples/custody_demo.rs"
