@@ -90,10 +90,111 @@ fn run_selftest(message_hex: &str) -> Result<String, String> {
 }
 
 // ---------------------------------------------------------------------------
-// Split-party API. Each function touches only ONE party's key material, so the
-// user's share (party 1, browser) and the network's share (party 2, daemon)
-// live on different machines and exchange only serialized commitments and
-// shares. The SigningPackage is rebuilt locally on each side from the two
+// Distributed key generation (2-party). Replaces the trusted dealer: neither
+// side ever sees the other's share, not even at wallet creation. Each party
+// holds its own secret packages between rounds and exchanges only the public
+// round1/round2 packages. The three parts mirror the FROST DKG protocol.
+// ---------------------------------------------------------------------------
+
+use frost::keys::dkg;
+
+/// DKG round 1 for one party. `id` is 1 (user) or 2 (network). Returns the
+/// secret package (held by this party until part 2) and the public package
+/// (broadcast to the other party). Both hex.
+#[wasm_bindgen]
+pub fn dkg_part1(id_u16: u16) -> String {
+    let run = || -> Result<String, String> {
+        let (secret, package) = dkg::part1(id(id_u16), 2, 2, OsRng).map_err(|e| e.to_string())?;
+        Ok(format!(
+            "{{\"ok\":true,\"secret\":\"{}\",\"package\":\"{}\"}}",
+            hex::encode(secret.serialize().map_err(|e| e.to_string())?),
+            hex::encode(package.serialize().map_err(|e| e.to_string())?)
+        ))
+    };
+    run().unwrap_or_else(err_json)
+}
+
+/// DKG round 2 for one party. Consumes this party's round1 secret and the OTHER
+/// party's round1 package. Returns this party's round2 secret (held until part
+/// 3) and the round2 package addressed to the other party. Both hex.
+#[wasm_bindgen]
+pub fn dkg_part2(r1_secret_hex: &str, other_id_u16: u16, other_r1_package_hex: &str) -> String {
+    let run = || -> Result<String, String> {
+        let r1_secret = dkg::round1::SecretPackage::deserialize(
+            &hex::decode(r1_secret_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let other_pkg = dkg::round1::Package::deserialize(
+            &hex::decode(other_r1_package_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let mut others = BTreeMap::new();
+        others.insert(id(other_id_u16), other_pkg);
+        let (r2_secret, r2_packages) = dkg::part2(r1_secret, &others).map_err(|e| e.to_string())?;
+        // In a 2-party DKG there is exactly one round2 package, addressed to the
+        // other participant.
+        let for_other = r2_packages
+            .get(&id(other_id_u16))
+            .ok_or("missing round2 package for peer")?;
+        Ok(format!(
+            "{{\"ok\":true,\"secret\":\"{}\",\"package\":\"{}\"}}",
+            hex::encode(r2_secret.serialize().map_err(|e| e.to_string())?),
+            hex::encode(for_other.serialize().map_err(|e| e.to_string())?)
+        ))
+    };
+    run().unwrap_or_else(err_json)
+}
+
+/// DKG round 3 for one party. Consumes this party's round2 secret, the other
+/// party's round1 package, and the round2 package the other party addressed to
+/// it. Produces this party's own key package plus the shared public-key package
+/// and group public key. The party's key package never leaves this call.
+#[wasm_bindgen]
+pub fn dkg_part3(
+    r2_secret_hex: &str,
+    other_id_u16: u16,
+    other_r1_package_hex: &str,
+    r2_package_from_other_hex: &str,
+) -> String {
+    let run = || -> Result<String, String> {
+        let r2_secret = dkg::round2::SecretPackage::deserialize(
+            &hex::decode(r2_secret_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let other_r1 = dkg::round1::Package::deserialize(
+            &hex::decode(other_r1_package_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let r2_from_other = dkg::round2::Package::deserialize(
+            &hex::decode(r2_package_from_other_hex).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let mut r1_map = BTreeMap::new();
+        r1_map.insert(id(other_id_u16), other_r1);
+        let mut r2_map = BTreeMap::new();
+        r2_map.insert(id(other_id_u16), r2_from_other);
+        let (key_package, pubkey_package) =
+            dkg::part3(&r2_secret, &r1_map, &r2_map).map_err(|e| e.to_string())?;
+        Ok(format!(
+            "{{\"ok\":true,\"key_package\":\"{}\",\"pubkey_pkg\":\"{}\",\"group_pk\":\"{}\"}}",
+            hex::encode(key_package.serialize().map_err(|e| e.to_string())?),
+            hex::encode(pubkey_package.serialize().map_err(|e| e.to_string())?),
+            hex::encode(
+                pubkey_package
+                    .verifying_key()
+                    .serialize()
+                    .map_err(|e| e.to_string())?
+            )
+        ))
+    };
+    run().unwrap_or_else(err_json)
+}
+
+// ---------------------------------------------------------------------------
+// Split-party signing API. Each function touches only ONE party's key material,
+// so the user's share (party 1, browser) and the network's share (party 2,
+// daemon) live on different machines and exchange only serialized commitments
+// and shares. The SigningPackage is rebuilt locally on each side from the two
 // commitments, so it never has to cross the wire.
 // ---------------------------------------------------------------------------
 

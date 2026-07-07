@@ -38,7 +38,16 @@ The granular entry points (`keygen_2of2`, `round1`, `round2`, `aggregate`,
 `network_sign_alone`) are what the browser and the signer drive. In production
 the signer's share is itself produced by the on-chain t-of-n operator set.
 
+## Distributed key generation (no trusted dealer)
+
+`dkg_part1/2/3` run the FROST DKG across the two parties, so neither side ever
+sees the other's share, not even at wallet creation. `node dkg-test.mjs` proves
+it (both parties derive the same group key independently, then co-sign). The
+split demo's "Create wallet" uses this: each process generates its own share.
+
 Phase 1 (done): FROST proven to run in the browser.
 Phase 2 (done): genuine browser + signer-process split, network-alone blocked.
-Next: 2-party DKG at wallet creation (no trusted dealer), a backup share for
-recovery, and per-user group-key registration against the on-chain program.
+Phase 3 (done): 2-party DKG (no dealer), and per-user group-key registration
+on-chain via the program's `register_custody_key`.
+Next: a backup share (2-of-3) for recovery, and wiring the on-chain binding into
+the browser flow.

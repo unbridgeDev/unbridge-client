@@ -18,6 +18,10 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 4700;
 // Per-wallet network material, and per-session round-1 nonces (single wallet).
 let wallet = null; // { net_kp, pubkey_pkg, group_pk }
 const sessions = new Map(); // sessionId -> { nonces, commit }
+// Transient DKG state while a wallet is being generated (this party's secrets).
+let dkg = null; // { r1s, r2s }
+
+const USER_ID = 1, NET_ID = 2;
 
 const send = (res, code, obj) => {
   res.writeHead(code, {
@@ -42,12 +46,31 @@ createServer(async (req, res) => {
   if (req.method === "OPTIONS") return send(res, 204, {});
   const url = new URL(req.url, "http://x").pathname;
   try {
-    if (url === "/register") {
-      const { net_kp, pubkey_pkg, group_pk } = await body(req);
-      if (!net_kp || !pubkey_pkg) return send(res, 400, { ok: false, error: "missing share" });
-      wallet = { net_kp, pubkey_pkg, group_pk };
+    // --- distributed key generation: the signer derives its OWN share; the
+    //     user share is never sent here, not even at wallet creation ---
+    if (url === "/dkg1") {
+      const r = JSON.parse(w.dkg_part1(NET_ID));
+      if (!r.ok) return send(res, 500, r);
+      dkg = { r1s: r.secret };
+      return send(res, 200, { ok: true, net_r1: r.package });
+    }
+    if (url === "/dkg2") {
+      if (!dkg) return send(res, 400, { ok: false, error: "no dkg in progress" });
+      const { user_r1 } = await body(req);
+      const r = JSON.parse(w.dkg_part2(dkg.r1s, USER_ID, user_r1));
+      if (!r.ok) return send(res, 500, r);
+      dkg.r2s = r.secret;
+      return send(res, 200, { ok: true, net_r2: r.package });
+    }
+    if (url === "/dkg3") {
+      if (!dkg || !dkg.r2s) return send(res, 400, { ok: false, error: "dkg not at round 3" });
+      const { user_r1, user_r2 } = await body(req);
+      const r = JSON.parse(w.dkg_part3(dkg.r2s, USER_ID, user_r1, user_r2));
+      if (!r.ok) return send(res, 500, r);
+      wallet = { net_kp: r.key_package, pubkey_pkg: r.pubkey_pkg, group_pk: r.group_pk };
+      dkg = null;
       sessions.clear();
-      return send(res, 200, { ok: true, holding: "network share only" });
+      return send(res, 200, { ok: true, holding: "network share only", group_pk: r.group_pk });
     }
     if (url === "/round1") {
       if (!wallet) return send(res, 400, { ok: false, error: "no wallet registered" });
