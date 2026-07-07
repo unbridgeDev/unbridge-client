@@ -374,3 +374,50 @@ fn wallet_gate_authorizes_owner_and_rejects_third_party() {
     let ix = wallet_request_ix(&env, &user_a.pubkey(), 5);
     send(&mut env.svm, &user_a, &[], ix).expect_err("gated request after revoke must fail");
 }
+
+/// Self-serve path (the open-demo mode): a user activates their OWN wallet with
+/// no admin involvement, then can post gated requests. A user cannot activate
+/// someone else's identity — the PDA derives from the signer's own key.
+#[test]
+fn self_serve_activation_binds_to_the_caller() {
+    let mut env = setup();
+    let user = Keypair::new();
+    let stranger = Keypair::new();
+    env.svm.airdrop(&user.pubkey(), 10_000_000_000).unwrap();
+    env.svm.airdrop(&stranger.pubkey(), 10_000_000_000).unwrap();
+
+    let activate_ix = |authority: &Pubkey| Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new(*authority, true),
+            AccountMeta::new_readonly(env.protocol, false),
+            AccountMeta::new(wallet_pda(&env.protocol, authority), false),
+            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        ],
+        data: disc("activate_wallet").to_vec(),
+    };
+
+    // 1. before activation, the gated path is closed for the user.
+    let ix = wallet_request_ix(&env, &user.pubkey(), 1);
+    send(&mut env.svm, &user, &[], ix).expect_err("no wallet yet");
+
+    // 2. user self-activates (signer == authority == payer, no admin).
+    send(&mut env.svm, &user, &[], activate_ix(&user.pubkey())).expect("self activate");
+    let w = env
+        .svm
+        .get_account(&wallet_pda(&env.protocol, &user.pubkey()))
+        .expect("wallet exists");
+    assert_eq!(&w.data[40..72], user.pubkey().as_ref(), "wallet bound to caller");
+
+    // 3. now the user's gated requests go through.
+    let ix = wallet_request_ix(&env, &user.pubkey(), 2);
+    send(&mut env.svm, &user, &[], ix).expect("gated request after self-activate");
+
+    // 4. a stranger cannot activate the user's identity: the account struct
+    //    derives the wallet PDA from the SIGNER, so signing as stranger while
+    //    passing the user's wallet PDA hits ConstraintSeeds.
+    let mut ix = activate_ix(&stranger.pubkey());
+    ix.accounts[2] = AccountMeta::new(wallet_pda(&env.protocol, &user.pubkey()), false);
+    let err = send(&mut env.svm, &stranger, &[], ix).expect_err("cannot activate other's identity");
+    assert!(err.contains("Custom(2006)"), "expected ConstraintSeeds, got: {err}");
+}

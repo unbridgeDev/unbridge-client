@@ -445,6 +445,32 @@ pub mod distin {
         Ok(())
     }
 
+    /// Self-serve: register the caller's OWN wallet identity.
+    ///
+    /// The permissionless twin of `register_wallet`: the signer is the authority
+    /// and the payer, so a user activates their own identity in one click. This
+    /// does NOT weaken the core guardrail — `create_wallet_request` still derives
+    /// the wallet PDA from the requester's own key, so a third party can never
+    /// post against someone else's identity. It only drops the admin bottleneck
+    /// for the open path; the admin-gated `register_wallet` remains for the
+    /// allowlist/policy mode.
+    pub fn activate_wallet(ctx: Context<ActivateWallet>) -> Result<()> {
+        require!(!ctx.accounts.protocol.paused, DistinError::ProtocolPaused);
+
+        let clock = Clock::get()?;
+        let wallet = &mut ctx.accounts.wallet;
+        wallet.protocol = ctx.accounts.protocol.key();
+        wallet.authority = ctx.accounts.authority.key();
+        wallet.registered_slot = clock.slot;
+        wallet.bump = ctx.bumps.wallet;
+
+        emit!(WalletRegistered {
+            wallet: wallet.key(),
+            authority: wallet.authority,
+        });
+        Ok(())
+    }
+
     /// Admin: revoke a requester identity. Closes the wallet PDA, so the next
     /// `create_wallet_request` from that authority fails at account resolution.
     pub fn revoke_wallet(ctx: Context<RevokeWallet>) -> Result<()> {
@@ -1053,6 +1079,29 @@ pub struct CreateWalletRequest<'info> {
         bump
     )]
     pub request: Account<'info, SigningRequest>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Accounts for `activate_wallet` — the caller registers their OWN identity.
+/// The wallet PDA is derived from (and stored with) the signer's key, so the
+/// account layer alone guarantees a user can only activate their own wallet.
+#[derive(Accounts)]
+pub struct ActivateWallet<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(seeds = [PROTOCOL_SEED], bump = protocol.bump)]
+    pub protocol: Account<'info, Protocol>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + Wallet::INIT_SPACE,
+        seeds = [WALLET_SEED, protocol.key().as_ref(), authority.key().as_ref()],
+        bump
+    )]
+    pub wallet: Account<'info, Wallet>,
 
     pub system_program: Program<'info, System>,
 }
