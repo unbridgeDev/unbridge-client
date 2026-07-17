@@ -1,6 +1,0 @@
-/target
-/pkg
-/pkg-web
-node_modules
-Cargo.lock
-web3.iife.min.js

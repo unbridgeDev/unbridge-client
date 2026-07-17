@@ -1,39 +1,40 @@
-# Security Policy
+# Security policy
 
-Unbridge coordinates threshold signatures that authorize native transactions on
-other chains. A signing bug is a funds bug, so we take reports seriously and ask
-you to disclose privately.
+Unbridge holds user funds in a shielded pool authorized by threshold signatures verified
+in zero-knowledge. A bug in a circuit, the program, or the signing protocol is a funds
+bug. We take reports seriously and ask you to disclose privately.
 
 ## Reporting a vulnerability
 
-**Do not open a public issue for a security problem.**
+Email **security@unbridge.dev** with:
 
-Report it through GitHub's private vulnerability reporting:
-
-- https://github.com/unbridgeDev/unbridge/security/advisories/new
-
-Please include:
-
-- the affected component (`engine/kobe`, `engine/kobe-ecdsa`, `engine/programs/distin`, `engine/coordinator`, or the web app),
 - a description of the issue and its impact,
-- steps or a proof-of-concept to reproduce, and
-- any suggested fix.
+- steps or a proof of concept to reproduce it,
+- the affected component (on-chain program, circuit, coordinator, relayer, client).
 
-We aim to acknowledge a report within 72 hours and to agree on a disclosure
-timeline with you. We will credit reporters who want credit once a fix ships.
+Please do not open a public issue for a vulnerability. We will acknowledge within a few
+days and keep you updated through to a fix.
 
 ## Scope
 
-In scope: the on-chain program, the off-chain signers and their per-chain
-envelopes, the coordinator, and the operator transport.
+In scope:
 
-Out of scope for now (documented, not hidden): the networked operator path is a
-localhost demo with a static pinned-key directory and no TLS/PKI; shares live in
-local files, not an HSM; the integration and the on-chain program are **not
-audited**. See the threat boundary in [`engine/SECURITY.md`](engine/SECURITY.md)
-and the engine self-audit in [`engine/AUDIT.md`](engine/AUDIT.md).
+- The on-chain program `6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu` (Solana mainnet).
+- The spend and deposit circuits and their verifying keys.
+- The threshold-signature and distributed-key-generation logic.
+- Anything that lets a party move funds without a valid threshold-authorized proof, or that
+  breaks the privacy guarantees in a way not already disclosed in
+  [`docs/security.mdx`](docs/security.mdx).
 
-## Supported versions
+Out of scope:
 
-This is pre-production software deployed on Solana devnet only. There is no
-production release and no real value at stake. Security fixes land on `main`.
+- Properties already documented as limitations (visible deposit denominations, anonymity
+  set size, the relayer seeing the recipient at submit time, the coordinator holding an
+  encrypted view key). These are known and disclosed, not vulnerabilities.
+- The absence of a third-party audit. The protocol is knowingly unaudited.
+
+## Honest status
+
+Unbridge is unaudited and the trusted-setup ceremony is ongoing. These are stated plainly
+in the documentation. Users should not deposit more than they are willing to expose to that
+risk.

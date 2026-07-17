@@ -1,7 +1,0 @@
-FROM node:22-slim
-WORKDIR /app
-COPY network-signer.mjs .
-COPY pkg ./pkg
-ENV PORT=8080
-EXPOSE 8080
-CMD ["node", "network-signer.mjs"]

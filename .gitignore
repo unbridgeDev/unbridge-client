@@ -1,11 +1,11 @@
-# Secrets — never commit
+# Secrets, never commit
 .env
 .env.*
 *.pem
 *-keypair.json
 deploy.json
 *-deploy.json
-# MPC secret material (key shares, operator identity keys)
+# Secret material (keys, key shares), never commit
 *shares*.json
 *.share.json
 operators/
@@ -49,7 +49,7 @@ logo_prompt.txt
 # logo exploration scratch
 logo_options/
 
-# operator-only review tools + experiments (not for the public repo)
+# Local-only tools + experiments (not for the public repo)
 marketing/_view.html
 marketing/_view_kr.html
 web/public/story.html
@@ -60,7 +60,7 @@ web/public/story.html
 engine/kobe-ecdsa/btc-send
 engine/kobe-ecdsa/tron-send
 
-# Frontend code — kept local only, never pushed to public repo
+# Frontend code: kept local only, never pushed to public repo
 web/
 product/web/
 web_images/
@@ -112,3 +112,9 @@ vault-store.json
 # Local dev tooling + internal deploy runbook (operational detail, not public)
 .claude/
 MAINNET-POOL.md
+
+# Local operations (wallet addresses, recovery + deploy commands) , never public
+RECOVERY.md
+scripts/
+engine/kobe-wasm/
+engine/kobe-wasm-secp/

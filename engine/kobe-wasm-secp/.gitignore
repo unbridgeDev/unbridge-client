@@ -1,5 +1,0 @@
-/target
-/pkg
-/pkg-web
-node_modules
-Cargo.lock
