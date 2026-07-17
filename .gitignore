@@ -64,3 +64,51 @@ engine/kobe-ecdsa/tron-send
 web/
 product/web/
 web_images/
+
+# ---------------------------------------------------------------------------
+# Local-only R&D. These are unreviewed spikes and experiments (ZK circuits,
+# collaborative proving, MPC prototypes) that back the shipped product but are
+# NOT part of the public repo. Same policy as web/ above: they stay on this
+# machine. Committing them would ship secrets and half-finished code into a
+# public tree. Keep the public repo to the curated engine + program only.
+engine/frost-pool-spike/
+engine/frost-pool-web/
+engine/frost-pool-relay/
+engine/frost-pool-demo/
+engine/frost-verify-check/
+engine/cocircom-browser/
+engine/cocircom-relay/
+engine/confidential-vault/
+engine/dkg-poc/
+engine/kobe-ct-wasm/
+engine/parse-circuit/
+engine/signing-node/
+engine/stealth-deposit/
+engine/umbra-spike/
+engine/privacy-cash-spike/
+engine/privacy-cash-sdk/
+engine/co-snarks/
+
+# Local-only experiment files dropped into otherwise-public engine dirs
+engine/kobe-wasm/coordinator*.mjs
+engine/kobe-wasm/vault-coordinator*.mjs
+engine/kobe-wasm/fly.vault.toml
+engine/kobe-wasm/Dockerfile.vault-coordinator
+engine/kobe-wasm/inspect-tx.mjs
+engine/kobe-wasm/mn-devnet-spend.mjs
+engine/kobe-wasm/test-mn.mjs
+engine/kobe-wasm/package.json
+engine/kobe-wasm/package-lock.json
+engine/kobe-wasm/faucet-key.json
+engine/kobe-wasm/vault-store.json
+engine/kobe/examples/team_vault.rs
+
+# Belt-and-suspenders secret patterns (in case a scratch dir is un-ignored)
+faucet-key.json
+*.shared
+.run/
+vault-store.json
+
+# Local dev tooling + internal deploy runbook (operational detail, not public)
+.claude/
+MAINNET-POOL.md
