@@ -60,3 +60,29 @@ secrets never leave it.
 ```bash
 solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu --url mainnet-beta
 ```
+Full check list, including the instruction surface and the disclosed upgrade
+authority, is at [Verify it yourself](verify.mdx).
+
+**Why is the client not published as an npm package?**
+The vault client contains the FROST implementation, the Groth16 circuit witness
+builder, and the deposit/spend transaction constructors. Publishing them as a
+package before the trusted-setup ceremony closes would freeze a snapshot that
+still depends on the current ceremony randomness. A pinned client release is
+scheduled after the ceremony's next-key rotation. Until then, the browser bundle
+at [unbridge.dev](https://unbridge.dev) is the reference client. It runs entirely
+in your browser and can be inspected in the network tab.
+
+**Is the program upgradable?**
+Yes, for now. The upgrade authority is disclosed as
+`YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf` and can push a new program version.
+It cannot invoke a fund-moving instruction that does not exist in the current
+binary (see [Verify](verify.mdx)). Freezing the program (setting the authority to
+`None`) is scheduled after the ceremony closes so a bug found during it can still
+be patched.
+
+**Where can I read the source?**
+The on-chain program's bytecode is on Solana; anyone can fetch and disassemble it
+from `6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu`. The Rust source will be
+published alongside the pinned client after the ceremony closes, together with a
+reproducible-build script that maps the source to the on-chain data length. Until
+then, the ten instruction names and their auth model are in [Verify](verify.mdx).
