@@ -4,7 +4,7 @@
 
 <h1 align="center">Unbridge</h1>
 
-<p align="center"><strong>The private multisig on Solana.</strong></p>
+<p align="center"><strong>Solana's first private multisig.</strong></p>
 
 <p align="center">
   A vault your team controls together. On-chain it looks like one ordinary wallet:
@@ -12,100 +12,195 @@
 </p>
 
 <p align="center">
-  <a href="https://unbridge.dev"><img alt="App" src="https://img.shields.io/badge/app-unbridge.dev-8B5CF6?style=for-the-badge"/></a>
-  <img alt="Network" src="https://img.shields.io/badge/solana-mainnet-8B5CF6?style=for-the-badge"/>
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-8B5CF6?style=for-the-badge"/></a>
+  <a href="https://unbridge.dev"><img alt="app" src="https://img.shields.io/badge/app-unbridge.dev-8B5CF6?style=for-the-badge"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/unbridgeDev/unbridge/ci.yml?branch=main&style=for-the-badge&label=ci&color=8B5CF6"/></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-8B5CF6?style=for-the-badge"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
+</p>
+
+<p align="center">
+  <img alt="network" src="https://img.shields.io/badge/solana-mainnet-8B5CF6?style=for-the-badge"/>
+  <a href="https://github.com/unbridgeDev/unbridge/commits/main"><img alt="last commit" src="https://img.shields.io/github/last-commit/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
+  <a href="https://x.com/Unbridgedev"><img alt="twitter" src="https://img.shields.io/twitter/follow/Unbridgedev?style=for-the-badge&color=8B5CF6&label=%40Unbridgedev"/></a>
 </p>
 
 ---
 
-This repository is the **protocol documentation** for Unbridge. The client that
-produces proofs and runs the FROST ceremony is not distributed as a package: it runs in
-your browser at [unbridge.dev](https://unbridge.dev), which is the only supported way to
-use the vault. Publishing a client for reproducible-build verification is scheduled after
-the trusted-setup ceremony closes; until then, the client bundle can be inspected in the
-network tab (proving and signing are computed in-page against Solana RPC and the relayer).
-The on-chain program is deployed and verifiable directly against mainnet:
-see [`docs/verify.mdx`](docs/verify.mdx). The Rust source is at
-[`programs/zkcash`](programs/zkcash) with a reproducible-build recipe that
-checks against the deployed binary's data length.
+Solana team treasuries stand in front of the chain naked. A normal multisig
+publishes the signer set, the threshold, every balance, and every payment. It
+is a map of who runs your money. Unbridge keeps the shared control and removes
+the map: on-chain the vault is one ordinary wallet, spends come out of a
+zero-knowledge proof, and no observer can tell one deposit from another.
 
-## What it is
+The on-chain program is live on Solana mainnet at
+`6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu`
+([Solana Explorer](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)).
+The Rust source lives in [`programs/zkcash`](programs/zkcash). The client
+runs in your browser at [unbridge.dev](https://unbridge.dev): proving and
+FROST signing happen on your device, never on a server. See
+[`docs/verify.mdx`](docs/verify.mdx) for the on-chain checks that back every
+claim on this page.
 
-A team vault where several people jointly control the funds, but the chain shows none of it.
+## Features
 
-- **No member list, no threshold on-chain.** Authorization happens inside a zero-knowledge proof. The chain sees a valid proof, not who signed or how many.
-- **No visible balance.** Funds live in a shielded pool as Poseidon commitments. The chain holds ciphertext, never amounts.
-- **No trail.** Deposits and withdrawals cannot be linked. A withdrawal lands at a fresh address with no on-chain path back to the depositor or the vault.
-- **The key is never assembled.** A `t`-of-`n` threshold signature is produced from key shares that are never combined, not even at signing time.
+| Feature                                              | Status | Notes                                                |
+|------------------------------------------------------|--------|------------------------------------------------------|
+| Shielded pool on Solana mainnet                      | stable | Program `6ESjwd...` verified on-chain                |
+| Personal vault (1-of-1)                              | stable | Deposit + relayed withdrawal to a fresh address      |
+| Team vault, `t`-of-`n` FROST signing                 | stable | Group key never assembled, not even at signing time  |
+| Threshold spend verified inside Groth16              | stable | Baby Jubjub FROST + BN254 pairing on-chain           |
+| Standard-denomination deposits (0.1 to 100 SOL)      | stable | Ten fixed sizes prevent amount fingerprints          |
+| Relayer-paid withdrawals                             | stable | Prepaid-fee model; recipient unlinkable to members   |
+| Async resumable team approvals                       | stable | Backed by a member-funded durable nonce              |
+| Vault recovery from chain + wallet                   | stable | No reliance on local cache                           |
+| Open trusted-setup ceremony                          | beta   | Public entropy at unbridge.dev/ceremony              |
+| SPL token pools                                      | alpha  | Program surface exists; mainnet allow-list is empty  |
+| Third-party audit                                    | pending| Scheduled after the ceremony's next-key rotation     |
 
-It is the Zcash shielded model applied to a Solana team treasury.
+## Architecture
 
-## How it works
+<p align="center">
+  <img src="banner.png" alt="Unbridge architecture" width="100%"/>
+</p>
 
-1. **Deposit.** SOL enters the shielded pool. The deposit creates a note: a Poseidon commitment that hides the amount, the owner, and a blinding factor. Only the note's holders can later spend it.
-2. **Authorize.** To spend, the members run a distributed threshold-signature ceremony (FROST over Baby Jubjub). Each member contributes a partial signature from their own key share. No member, and no server, ever holds the whole key.
-3. **Prove.** The aggregated threshold signature is verified *inside* a Groth16 zero-knowledge proof, together with the note's membership in the pool's Merkle tree. The proof reveals nothing about the members, the amount, or which note is being spent.
-4. **Settle.** The proof is checked on-chain by the program. A relayer submits the transaction and pays the network fee, so the recipient address is never linked to the members' wallets.
+Four moving parts, only one of which is trusted for correctness:
 
-See [`docs/how-it-works.mdx`](docs/how-it-works.mdx) for the full flow and
-[`docs/architecture.mdx`](docs/architecture.mdx) for the components.
+| Party                | Can move funds?                       | What it learns                             |
+|----------------------|---------------------------------------|--------------------------------------------|
+| On-chain program     | Only by verifying a valid Groth16 proof | Public tree state, spent nullifiers      |
+| A single member      | No (needs a threshold)                 | Their own key share                        |
+| Coordinator          | No (holds no key shares)               | Encrypted ceremony messages                |
+| Relayer              | No (proof binds outputs)               | Recipient address, at submit time only     |
+| Upgrade authority    | No (no sweep instruction exists)       | Nothing private                            |
 
-## Custody
+Full write-up in [`docs/architecture.mdx`](docs/architecture.mdx).
 
-No single party can move the funds, by construction.
-
-- **Members** hold key shares. A spend needs a threshold of them. One member cannot withdraw alone.
-- **The coordinator** (a relay that helps members find each other during a ceremony) holds **no key shares**. It cannot sign, cannot move funds, and can be replaced.
-- **The relayer** pays withdrawal gas and learns the recipient at submit time only. It cannot steal and cannot see who authorized the spend.
-- **The admin** (program upgrade authority) cannot touch user funds. There is no instruction that lets anyone sweep the pool.
-
-## Verify it yourself
-
-The program is deployed and live on Solana mainnet:
-
-```
-Program: 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu
-```
+## Build
 
 ```bash
-solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu --url mainnet-beta
+git clone --recurse-submodules https://github.com/unbridgeDev/unbridge.git
+cd unbridge
+
+# Type-check without producing binaries
+make check
+
+# Build the on-chain program (requires cargo-build-sbf)
+make build
+
+# Verify the local build size matches the deployed mainnet program
+make verify
 ```
 
-Expected output: owner is the standard upgradeable BPF loader,
-the upgrade authority is `YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf`
-(disclosed, not hidden), the program data length is 502320 bytes.
+The build output at `target/deploy/zkcash.so` should reproduce the same
+502320-byte program deployed on mainnet. See the [Makefile](Makefile) for the
+full target list.
 
-The program surface is ten instructions. Three take Groth16 proofs and can move
-value (`deposit`, `transact`, `transact_spl`); seven are configuration-only and
-gated on the upgrade authority. There is no `sweep`, `withdraw_admin`, or
-`emergency_drain` instruction. See [`docs/verify.mdx`](docs/verify.mdx) for the
-full check list.
+## Quick start
+
+Any wallet can inspect the deployed program:
+
+```bash
+solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu \
+    --url mainnet-beta
+# Owner:     BPFLoaderUpgradeab1e11111111111111111111111
+# Authority: YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf
+# Length:    502320
+```
+
+Read the pool's global config account from a script:
+
+```rust
+use anchor_lang::prelude::*;
+use solana_client::rpc_client::RpcClient;
+
+let rpc = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
+let program_id: Pubkey = "6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu".parse()?;
+let (config_pda, _) = Pubkey::find_program_address(&[b"global_config"], &program_id);
+let account = rpc.get_account(&config_pda)?;
+// Deserialize with the type in programs/zkcash/idl/zkcash.json → GlobalConfig
+```
+
+Same read from the browser once the client bundle is pinned:
+
+```ts
+import { Connection, PublicKey } from "@solana/web3.js";
+
+const rpc = new Connection("https://api.mainnet-beta.solana.com");
+const programId = new PublicKey("6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu");
+const [configPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("global_config")],
+    programId,
+);
+const account = await rpc.getAccountInfo(configPda);
+// Returns: { lamports, owner: programId, data, executable: false, ... }
+```
+
+## Project structure
+
+```
+.
+|-- Anchor.toml                  # Anchor 0.31 workspace + program IDs per cluster
+|-- Cargo.toml                   # workspace manifest, pinned solana 1.18.26
+|-- Cargo.lock                   # committed for reproducible builds
+|-- Dockerfile                   # multi-stage reproducible builder
+|-- Makefile                     # build, check, test, lint, format, verify
+|-- rust-toolchain.toml          # pinned Rust 1.78
+|-- rustfmt.toml
+|-- clippy.toml
+|-- .env.example                 # RPC + keypair reference
+|-- docs/
+|   |-- index.mdx                # overview
+|   |-- architecture.mdx         # components + trust model
+|   |-- how-it-works.mdx         # deposit -> spend flow
+|   |-- security.mdx             # threat model, disclosures
+|   |-- verify.mdx               # on-chain checks anyone can run
+|   |-- getting-started.mdx
+|   `-- faq.mdx
+|-- programs/
+|   `-- zkcash/                  # on-chain program (mainnet: 6ESjwd...)
+|       |-- Cargo.toml
+|       |-- Xargo.toml
+|       |-- README.md
+|       |-- idl/
+|       |   `-- zkcash.json      # instruction and account schema
+|       |-- src/
+|       |   |-- lib.rs           # ten entrypoints (3 proof-gated, 7 admin)
+|       |   |-- merkle_tree.rs   # sparse 26-level tree + root history
+|       |   |-- groth16.rs       # BN254 pairing verify via syscalls
+|       |   |-- verifying_keys.rs
+|       |   |-- utils.rs         # denomination + fee math
+|       |   `-- errors.rs
+|       `-- tests/
+|           `-- unit/            # unit coverage for utils, merkle, groth16
+`-- .github/
+    |-- workflows/ci.yml         # format check, cargo check, secret scan
+    |-- workflows/release.yml    # publish release on v* tag
+    |-- ISSUE_TEMPLATE/
+    |-- PULL_REQUEST_TEMPLATE.md
+    `-- CODEOWNERS
+```
+
+## Deployments
+
+| Cluster       | Program ID                                             | Explorer                                                                                                    |
+|---------------|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| mainnet-beta  | `6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu`         | [view](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)                    |
+| devnet        | `6je63wko2Koor98MXFJntixKQ1X3J2BHUdnAfKbDs4uL`         | [view](https://explorer.solana.com/address/6je63wko2Koor98MXFJntixKQ1X3J2BHUdnAfKbDs4uL?cluster=devnet)     |
+
+Upgrade authority: `YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf` (disclosed,
+scheduled to be dropped after the trusted-setup ceremony closes).
 
 ## Trusted setup
 
-The Groth16 proving system needs a one-time setup. Its first phase uses the public
-Perpetual Powers of Tau. The circuit-specific second phase was bootstrapped by the
-project, which means the operator must currently be trusted not to have kept the setup
-randomness. We are removing that assumption in the open: anyone can contribute fresh
-entropy at [unbridge.dev/ceremony](https://unbridge.dev/ceremony). The setup is safe the
-moment one honest contributor is someone other than us. This is disclosed plainly rather
-than glossed over. See [`docs/security.mdx`](docs/security.mdx).
-
-## What is and is not hidden
-
-Honest by default:
-
-| Hidden on-chain | Visible on-chain |
-|---|---|
-| Who the members are | That a deposit or withdrawal happened |
-| How many must sign | The standard denomination of a deposit |
-| The vault's balance | That the program was invoked |
-| The link between a deposit and a withdrawal | |
-
-Privacy grows with the size of the anonymity set. A young pool offers less cover than a
-busy one. The relayer sees the recipient at submit time. These are properties of shielded
-pools, not defects, and they are documented in [`docs/security.mdx`](docs/security.mdx).
+The Groth16 proving system needs a one-time setup. Its first phase uses the
+public Perpetual Powers of Tau. The circuit-specific second phase was
+bootstrapped by the project, which means the operator must currently be
+trusted not to have kept the setup randomness. We are removing that assumption
+in the open: anyone can contribute fresh entropy at
+[unbridge.dev/ceremony](https://unbridge.dev/ceremony). The setup is safe the
+moment one honest contributor is someone other than us. This is disclosed
+plainly. See [`docs/security.mdx`](docs/security.mdx).
 
 ## Documentation
 
@@ -117,19 +212,25 @@ pools, not defects, and they are documented in [`docs/security.mdx`](docs/securi
 - [Getting started](docs/getting-started.mdx)
 - [FAQ](docs/faq.mdx)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports go to
+[SECURITY.md](SECURITY.md) or the private
+[advisory route](https://github.com/unbridgeDev/unbridge/security/advisories/new).
+Community guidelines in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
 ## Status
 
-Live on Solana mainnet. The client runs in the browser at
-[unbridge.dev](https://unbridge.dev); proving and signing happen on your own device. The
-protocol is unaudited and the setup ceremony is ongoing. Do not deposit more than you are
-willing to expose to that risk.
+Live on Solana mainnet. Unaudited. Trusted-setup ceremony ongoing. Do not
+deposit more than you are willing to expose to that risk.
 
 ## Links
 
-- Website: https://unbridge.dev
-- Docs: https://unbridge.dev/docs
-- X: https://x.com/Unbridgedev
-- GitHub: https://github.com/unbridgeDev/unbridge
+- Website: [unbridge.dev](https://unbridge.dev)
+- Docs: [unbridge.dev/docs](https://unbridge.dev/docs)
+- X: [@Unbridgedev](https://x.com/Unbridgedev)
+- GitHub: [unbridgeDev/unbridge](https://github.com/unbridgeDev/unbridge)
+- Explorer: [6ESjwd...RRALu](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)
 
 ## License
 
