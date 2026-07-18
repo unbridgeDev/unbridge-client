@@ -260,7 +260,7 @@ deposit more than you are willing to expose to that risk.
 ## Links
 
 - Website: [unbridge.dev](https://unbridge.dev)
-- Docs: [unbridge.dev/docs](https://unbridge.dev/docs)
+- Docs: [github.com/unbridgeDev/unbridge-client](https://github.com/unbridgeDev/unbridge-client)
 - X: [@Unbridgedev](https://x.com/Unbridgedev)
 - GitHub: [unbridgeDev/unbridge-client](https://github.com/unbridgeDev/unbridge-client)
 - Explorer: [6ESjwd...RRALu](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)
