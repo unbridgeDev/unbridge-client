@@ -21,7 +21,22 @@ On-chain, an observer sees that some address deposited a standard denomination i
 pool. It cannot see who the note belongs to or tie it to a future withdrawal.
 
 Deposits use fixed denominations. Uniform amounts are what let one deposit blend into the
-crowd of others; an arbitrary amount would be a fingerprint.
+crowd of others; an arbitrary amount would be a fingerprint. The current set is ten steps
+in a 1-2-5 series from 0.1 SOL to 100 SOL:
+
+```
+0.1  0.2  0.5   1   2   5   10   20   50   100  SOL
+```
+
+Any other deposit size is rejected by the program. The client splits arbitrary user
+amounts into a sequence of these; each individual deposit is indistinguishable from every
+other deposit at the same size.
+
+A deposit over-funds the pool by a fixed **prepaid fee** of 0.003 SOL. When you withdraw,
+the pool pays the recipient a clean round denomination and pays the relayer this prepaid
+amount for gas and rent. This keeps withdrawal amounts denomination-clean (no
+"denomination minus a variable fee" tail that would fingerprint the withdrawal) and means
+the relayer never fronts capital.
 
 ## 3. Authorize a withdrawal
 
