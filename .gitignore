@@ -118,3 +118,8 @@ RECOVERY.md
 scripts/
 engine/kobe-wasm/
 engine/kobe-wasm-secp/
+
+# Pool program build output and secret key material
+programs/zkcash/target/
+programs/zkcash/keys/
+zkcash-v*-*.json
