@@ -26,7 +26,9 @@ use the vault. Publishing a client for reproducible-build verification is schedu
 the trusted-setup ceremony closes; until then, the client bundle can be inspected in the
 network tab (proving and signing are computed in-page against Solana RPC and the relayer).
 The on-chain program is deployed and verifiable directly against mainnet:
-see [`docs/verify.mdx`](docs/verify.mdx).
+see [`docs/verify.mdx`](docs/verify.mdx). The Rust source is at
+[`programs/zkcash`](programs/zkcash) with a reproducible-build recipe that
+checks against the deployed binary's data length.
 
 ## What it is
 
