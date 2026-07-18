@@ -107,6 +107,13 @@ Live on Solana mainnet. The client runs in the browser at
 protocol is unaudited and the setup ceremony is ongoing. Do not deposit more than you are
 willing to expose to that risk.
 
+## Links
+
+- Website: https://unbridge.dev
+- Docs: https://unbridge.dev/docs
+- X: https://x.com/Unbridgedev
+- GitHub: https://github.com/unbridgeDev/unbridge
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
