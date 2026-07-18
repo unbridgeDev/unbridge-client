@@ -1,0 +1,267 @@
+{
+  "address": "6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu",
+  "metadata": {
+    "name": "zkcash",
+    "version": "0.6.0",
+    "spec": "0.1.0",
+    "description": "Unbridge shielded-pool program: private team multisig on Solana. FROST-authorized spends verified inside Groth16."
+  },
+  "instructions": [
+    {
+      "name": "initialize",
+      "docs": ["One-time pool init. Admin-gated. Creates the Merkle tree, treasury PDA, and global config."],
+      "discriminator": [175, 175, 109, 31, 13, 152, 155, 237],
+      "accounts": [
+        {"name": "authority", "signer": true, "writable": true},
+        {"name": "tree_account", "writable": true},
+        {"name": "tree_token_account", "writable": true},
+        {"name": "global_config", "writable": true},
+        {"name": "system_program"}
+      ],
+      "args": []
+    },
+    {
+      "name": "update_deposit_limit",
+      "docs": ["Admin adjusts the per-transaction deposit cap. Does not move funds."],
+      "discriminator": [232, 24, 220, 209, 76, 249, 84, 200],
+      "accounts": [
+        {"name": "authority", "signer": true},
+        {"name": "tree_account", "writable": true}
+      ],
+      "args": [{"name": "new_limit", "type": "u64"}]
+    },
+    {
+      "name": "update_global_config",
+      "docs": ["Admin adjusts fee rates, error margins, and other pool parameters. Does not move funds."],
+      "discriminator": [164, 84, 130, 189, 111, 58, 250, 200],
+      "accounts": [
+        {"name": "authority", "signer": true},
+        {"name": "global_config", "writable": true}
+      ],
+      "args": [
+        {"name": "deposit_fee_rate", "type": {"option": "u16"}},
+        {"name": "withdrawal_fee_rate", "type": {"option": "u16"}},
+        {"name": "fee_error_margin", "type": {"option": "u16"}}
+      ]
+    },
+    {
+      "name": "push_association_root",
+      "docs": ["ASP authority publishes a new association-set root for compliance filtering. Does not move funds."],
+      "discriminator": [216, 61, 137, 232, 44, 129, 191, 116],
+      "accounts": [
+        {"name": "asp_authority", "signer": true},
+        {"name": "global_config", "writable": true}
+      ],
+      "args": [{"name": "root", "type": {"array": ["u8", 32]}}]
+    },
+    {
+      "name": "set_asp_authority",
+      "docs": ["Admin hands off the ASP role to a separate authority. Does not move funds."],
+      "discriminator": [173, 246, 129, 5, 121, 191, 60, 130],
+      "accounts": [
+        {"name": "authority", "signer": true},
+        {"name": "global_config", "writable": true}
+      ],
+      "args": [{"name": "new_asp_authority", "type": "pubkey"}]
+    },
+    {
+      "name": "initialize_tree_account_for_spl_token",
+      "docs": ["Admin creates a Merkle tree for a specific SPL mint. Mint must be in the ALLOWED_TOKENS list (empty on mainnet)."],
+      "discriminator": [138, 42, 51, 217, 214, 33, 90, 195],
+      "accounts": [
+        {"name": "authority", "signer": true, "writable": true},
+        {"name": "mint"},
+        {"name": "tree_account", "writable": true},
+        {"name": "tree_token_account", "writable": true},
+        {"name": "token_program"},
+        {"name": "associated_token_program"},
+        {"name": "system_program"}
+      ],
+      "args": []
+    },
+    {
+      "name": "update_deposit_limit_for_spl_token",
+      "docs": ["Admin adjusts the per-tx deposit cap for a specific SPL mint's tree."],
+      "discriminator": [80, 168, 105, 219, 44, 141, 89, 78],
+      "accounts": [
+        {"name": "authority", "signer": true},
+        {"name": "tree_account", "writable": true}
+      ],
+      "args": [{"name": "new_limit", "type": "u64"}]
+    },
+    {
+      "name": "deposit",
+      "docs": ["Add a note to the shielded pool. 4-input Groth16 proof. Deposit must be exactly one of the ten standard denominations."],
+      "discriminator": [242, 35, 198, 137, 82, 225, 242, 182],
+      "accounts": [
+        {"name": "signer", "signer": true, "writable": true},
+        {"name": "tree_account", "writable": true},
+        {"name": "tree_token_account", "writable": true},
+        {"name": "global_config"},
+        {"name": "output_note_a", "writable": true},
+        {"name": "output_note_b", "writable": true},
+        {"name": "system_program"}
+      ],
+      "args": [
+        {"name": "proof", "type": {"defined": {"name": "DepositProof"}}},
+        {"name": "ext_data_minified", "type": {"defined": {"name": "ExtDataMinified"}}},
+        {"name": "encrypted_output1", "type": "bytes"},
+        {"name": "encrypted_output2", "type": "bytes"}
+      ]
+    },
+    {
+      "name": "transact",
+      "docs": ["Shielded spend with 2 inputs and 2 outputs. Full spend proof. Nullifier accounts are created to prevent double-spend. Relayer paid from the pool's prepaid fee buffer."],
+      "discriminator": [174, 68, 34, 130, 68, 176, 92, 214],
+      "accounts": [
+        {"name": "signer", "signer": true, "writable": true},
+        {"name": "tree_account", "writable": true},
+        {"name": "tree_token_account", "writable": true},
+        {"name": "global_config"},
+        {"name": "input_nullifier_a", "writable": true},
+        {"name": "input_nullifier_b", "writable": true},
+        {"name": "output_note_a", "writable": true},
+        {"name": "output_note_b", "writable": true},
+        {"name": "recipient", "writable": true},
+        {"name": "fee_recipient", "writable": true},
+        {"name": "system_program"}
+      ],
+      "args": [
+        {"name": "proof", "type": {"defined": {"name": "Proof"}}},
+        {"name": "ext_data_minified", "type": {"defined": {"name": "ExtDataMinified"}}},
+        {"name": "encrypted_output1", "type": "bytes"},
+        {"name": "encrypted_output2", "type": "bytes"}
+      ]
+    },
+    {
+      "name": "transact_spl",
+      "docs": ["SPL variant of transact. Only reachable when ALLOWED_TOKENS contains the mint (empty on mainnet)."],
+      "discriminator": [217, 149, 130, 218, 88, 22, 78, 191],
+      "accounts": [
+        {"name": "signer", "signer": true, "writable": true},
+        {"name": "tree_account", "writable": true},
+        {"name": "tree_token_account", "writable": true},
+        {"name": "global_config"},
+        {"name": "mint"},
+        {"name": "signer_token_account", "writable": true},
+        {"name": "input_nullifier_a", "writable": true},
+        {"name": "input_nullifier_b", "writable": true},
+        {"name": "output_note_a", "writable": true},
+        {"name": "output_note_b", "writable": true},
+        {"name": "recipient_token_account", "writable": true},
+        {"name": "fee_recipient_token_account", "writable": true},
+        {"name": "token_program"},
+        {"name": "associated_token_program"},
+        {"name": "system_program"}
+      ],
+      "args": [
+        {"name": "proof", "type": {"defined": {"name": "Proof"}}},
+        {"name": "ext_data_minified", "type": {"defined": {"name": "ExtDataMinified"}}},
+        {"name": "encrypted_output1", "type": "bytes"},
+        {"name": "encrypted_output2", "type": "bytes"}
+      ]
+    }
+  ],
+  "accounts": [
+    {"name": "TreeAccount", "discriminator": [16, 168, 155, 234, 216, 149, 219, 187]},
+    {"name": "TreeTokenAccount", "discriminator": [93, 194, 205, 32, 76, 84, 88, 179]},
+    {"name": "GlobalConfig", "discriminator": [149, 8, 156, 202, 160, 252, 176, 217]}
+  ],
+  "types": [
+    {
+      "name": "Proof",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "proof_a", "type": {"array": ["u8", 64]}},
+          {"name": "proof_b", "type": {"array": ["u8", 128]}},
+          {"name": "proof_c", "type": {"array": ["u8", 64]}},
+          {"name": "root", "type": {"array": ["u8", 32]}},
+          {"name": "public_amount", "type": {"array": ["u8", 32]}},
+          {"name": "ext_data_hash", "type": {"array": ["u8", 32]}},
+          {"name": "input_nullifiers", "type": {"array": [{"array": ["u8", 32]}, 2]}},
+          {"name": "output_commitments", "type": {"array": [{"array": ["u8", 32]}, 2]}},
+          {"name": "association_root", "type": {"array": ["u8", 32]}},
+          {"name": "input_association_indices", "type": {"array": ["u32", 2]}}
+        ]
+      }
+    },
+    {
+      "name": "DepositProof",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "proof_a", "type": {"array": ["u8", 64]}},
+          {"name": "proof_b", "type": {"array": ["u8", 128]}},
+          {"name": "proof_c", "type": {"array": ["u8", 64]}},
+          {"name": "public_amount", "type": {"array": ["u8", 32]}},
+          {"name": "ext_data_hash", "type": {"array": ["u8", 32]}},
+          {"name": "output_commitments", "type": {"array": [{"array": ["u8", 32]}, 2]}}
+        ]
+      }
+    },
+    {
+      "name": "ExtDataMinified",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "ext_amount", "type": "i64"},
+          {"name": "fee", "type": "u64"},
+          {"name": "mint_address", "type": "pubkey"}
+        ]
+      }
+    },
+    {
+      "name": "TreeAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "authority", "type": "pubkey"},
+          {"name": "next_index", "type": "u64"},
+          {"name": "root_index", "type": "u64"},
+          {"name": "root_history", "type": {"array": [{"array": ["u8", 32]}, 100]}},
+          {"name": "deposit_limit", "type": "u64"},
+          {"name": "bump", "type": "u8"}
+        ]
+      }
+    },
+    {
+      "name": "TreeTokenAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "authority", "type": "pubkey"},
+          {"name": "bump", "type": "u8"}
+        ]
+      }
+    },
+    {
+      "name": "GlobalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {"name": "authority", "type": "pubkey"},
+          {"name": "asp_authority", "type": "pubkey"},
+          {"name": "deposit_fee_rate", "type": "u16"},
+          {"name": "withdrawal_fee_rate", "type": "u16"},
+          {"name": "fee_error_margin", "type": "u16"},
+          {"name": "association_head", "type": "u64"},
+          {"name": "association_roots", "type": {"array": [{"array": ["u8", 32]}, 100]}},
+          {"name": "bump", "type": "u8"}
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {"code": 6000, "name": "InvalidDenomination", "msg": "Deposit amount is not one of the ten standard denominations"},
+    {"code": 6001, "name": "InvalidProof", "msg": "Groth16 proof verification failed"},
+    {"code": 6002, "name": "NullifierAlreadyUsed", "msg": "Input nullifier has already been consumed"},
+    {"code": 6003, "name": "InvalidMerkleRoot", "msg": "Proof references a root that is not in the recent history"},
+    {"code": 6004, "name": "DepositLimitExceeded", "msg": "Deposit exceeds the per-transaction cap"},
+    {"code": 6005, "name": "Unauthorized", "msg": "Caller is not the admin authority for this operation"},
+    {"code": 6006, "name": "SplMintNotAllowed", "msg": "SPL mint is not in the ALLOWED_TOKENS list"},
+    {"code": 6007, "name": "InvalidFeeCalculation", "msg": "Reported fee does not match the computed fee within margin"},
+    {"code": 6008, "name": "PoolInsufficientBalance", "msg": "Prepaid-fee buffer is insufficient for this withdrawal"},
+    {"code": 6009, "name": "InvalidAssociationSetProof", "msg": "Input note is not in the current association set"}
+  ]
+}
