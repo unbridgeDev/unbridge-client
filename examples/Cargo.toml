@@ -1,0 +1,24 @@
+[package]
+name = "unbridge-examples"
+version = "0.1.0"
+edition = "2021"
+description = "End-to-end integration examples that wire the Unbridge client crates together."
+license = "MIT"
+repository = "https://github.com/unbridgeDev/unbridge-client"
+homepage = "https://unbridge.dev"
+publish = false
+
+[[bin]]
+name = "end_to_end"
+path = "src/bin/end_to_end.rs"
+
+[dependencies]
+frost = { path = "../crates/frost" }
+pool-note = { path = "../crates/pool-note" }
+ark-bn254 = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
+rand_core = { version = "0.6", features = ["getrandom"] }
+ureq = { version = "2.9", default-features = false, features = ["tls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
