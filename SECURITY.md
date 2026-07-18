@@ -8,9 +8,9 @@ bug. We take reports seriously and ask you to disclose privately.
 
 Two channels, either is fine:
 
-1. **Email** `security@unbridge.dev`. Encrypt if you can; the PGP key fingerprint
-   is `unbridge.dev/.well-known/pgp-key.txt` and its fingerprint is republished
-   on this repo's [Security page](https://github.com/unbridgeDev/unbridge/security).
+1. **Email** `security@unbridge.dev`. Encrypt if you can; a PGP key will be
+   published alongside the trusted-setup ceremony's key rotation. Until then,
+   plain email is fine.
 2. **Private security advisory** on GitHub:
    [Report a vulnerability](https://github.com/unbridgeDev/unbridge/security/advisories/new).
    This is the recommended path if you already have a GitHub account.
