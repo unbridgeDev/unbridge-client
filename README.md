@@ -19,10 +19,14 @@
 
 ---
 
-This repository is the **protocol documentation** for Unbridge. The app is live at
-[unbridge.dev](https://unbridge.dev). The on-chain program runs on Solana mainnet and
-can be verified independently (below). The proving circuits and client are being
-decentralized through an open setup ceremony; see [Trusted setup](#trusted-setup).
+This repository is the **protocol documentation** for Unbridge. The client that
+produces proofs and runs the FROST ceremony is not distributed as a package: it runs in
+your browser at [unbridge.dev](https://unbridge.dev), which is the only supported way to
+use the vault. Publishing a client for reproducible-build verification is scheduled after
+the trusted-setup ceremony closes; until then, the client bundle can be inspected in the
+network tab (proving and signing are computed in-page against Solana RPC and the relayer).
+The on-chain program is deployed and verifiable directly against mainnet:
+see [`docs/verify.mdx`](docs/verify.mdx).
 
 ## What it is
 
@@ -66,6 +70,16 @@ Program: 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu
 solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu --url mainnet-beta
 ```
 
+Expected output: owner is the standard upgradeable BPF loader,
+the upgrade authority is `YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf`
+(disclosed, not hidden), the program data length is 502320 bytes.
+
+The program surface is ten instructions. Three take Groth16 proofs and can move
+value (`deposit`, `transact`, `transact_spl`); seven are configuration-only and
+gated on the upgrade authority. There is no `sweep`, `withdraw_admin`, or
+`emergency_drain` instruction. See [`docs/verify.mdx`](docs/verify.mdx) for the
+full check list.
+
 ## Trusted setup
 
 The Groth16 proving system needs a one-time setup. Its first phase uses the public
@@ -97,6 +111,7 @@ pools, not defects, and they are documented in [`docs/security.mdx`](docs/securi
 - [Architecture](docs/architecture.mdx)
 - [How it works](docs/how-it-works.mdx)
 - [Security and threat model](docs/security.mdx)
+- [Verify it yourself](docs/verify.mdx)
 - [Getting started](docs/getting-started.mdx)
 - [FAQ](docs/faq.mdx)
 
