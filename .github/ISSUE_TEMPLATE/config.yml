@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://github.com/unbridgeDev/unbridge-client
+    url: https://unbridge.dev/docs
     about: Architecture, protocol spec, integration guide.
   - name: Security disclosure
     url: https://github.com/unbridgeDev/unbridge-client/security/advisories/new

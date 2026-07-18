@@ -2,7 +2,7 @@
 
 Places to go:
 
-- Documentation: https://github.com/unbridgeDev/unbridge-client
+- Documentation: https://unbridge.dev/docs
 - Bug reports: https://github.com/unbridgeDev/unbridge-client/issues/new/choose
 - Discussions: https://github.com/unbridgeDev/unbridge-client/discussions
 - X (Twitter): https://x.com/Unbridgedev
