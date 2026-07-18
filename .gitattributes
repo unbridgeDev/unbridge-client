@@ -1,30 +1,22 @@
+# Line endings — normalize on commit so cross-OS contributors don't churn diffs.
 * text=auto eol=lf
 
-*.rs text eol=lf
-*.ts text eol=lf
-*.tsx text eol=lf
-*.go text eol=lf
-*.json text eol=lf
-*.toml text eol=lf
 *.md text eol=lf
 *.mdx text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+*.json text eol=lf
+*.toml text eol=lf
 *.sh text eol=lf
 
+# Binary assets — never touch bytes.
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.webp binary
-*.mp4 binary
-*.so binary
 
-*.ts linguist-language=TypeScript
-*.tsx linguist-language=TypeScript
-*.rs linguist-language=Rust
-*.go linguist-language=Go
-*.mdx linguist-documentation
-docs/* linguist-documentation
-web/public/* linguist-generated
-web/.next/* linguist-generated
-engine/**/target/* linguist-generated
+# The repo is protocol documentation. Let GitHub surface that in the language bar
+# rather than reporting an empty repo (a linguist-documentation override on mdx
+# used to hide the docs from the language stats). The source that the docs
+# describe is on-chain and, after the ceremony closes, will land in this repo as
+# a program/ subtree; the linguist rules for that source can come back then.
