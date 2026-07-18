@@ -45,6 +45,7 @@ group key never exists at any moment, not even at signing time.
 | [`circuits/spend_auth.circom`](circuits/spend_auth.circom)                               | FROST-compatible spend authorisation. Swaps Privacy Cash's key-preimage check for an EdDSA-Poseidon signature verified in-circuit. |
 | [`circuits/pool_tx.circom`](circuits/pool_tx.circom)                                     | Full 2-in-2-out transact circuit wired to the new spend-auth primitive with the Sapling ak/nk nullifier split. |
 | [`circuits/pool_deposit.circom`](circuits/pool_deposit.circom)                           | 4-input deposit-only circuit (~10x smaller than transact, proves in ~0.3s).                                |
+| [`crates/frost`](crates/frost)                                                           | FROST threshold signing over Baby Jubjub, produces the exact EdDSA-Poseidon signature the spend_auth circuit accepts. Two-round signing + dealerless DKG. |
 | [`crates/pool-note`](crates/pool-note)                                                   | Note primitives: commitment, nullifier, view-key encryption, boundary-denomination validation.             |
 | [`crates/frost-verify-check`](crates/frost-verify-check)                                 | Off-chain BN254 pairing verifier used to de-risk on-chain verification before ceremony rotations.          |
 | [`crates/confidential-vault`](crates/confidential-vault)                                 | Token-2022 confidential balance with an independent ElGamal view key so a FROST group can own one.         |
