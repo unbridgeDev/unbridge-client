@@ -16,9 +16,16 @@ Shipped items are live and verifiable. Planned items are honest intentions, not 
 ## Planned
 
 - [ ] Distribute the team view key to member keys so the coordinator never holds it.
-- [ ] Adopt external ceremony contributions via an announced verifying-key rotation.
+- [ ] Adopt external ceremony contributions via an announced verifying-key rotation, then
+      set the program's upgrade authority to `None`.
 - [ ] Third-party audit of the program and circuits.
 - [ ] Larger anonymity set through decoy seeding and broader usage.
-- [ ] SPL token support alongside SOL.
+- [ ] SPL-token pools. The program ships with SPL entrypoints
+      (`initialize_tree_account_for_spl_token`, `transact_spl`) but launches with
+      `ALLOW_ALL_SPL_TOKENS = false` and an empty allow-list, so every SPL path is
+      unreachable on mainnet today. Enabling it means adding vetted mints to the list in
+      a program upgrade.
+- [ ] Reproducible-build script and pinned client release, so the on-chain program data
+      length and the browser bundle can both be checked against source.
 
 Planning happens in issues and discussions.
