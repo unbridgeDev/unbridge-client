@@ -51,6 +51,7 @@ group key never exists at any moment, not even at signing time.
 | [`crates/pool-note`](crates/pool-note)                                                   | Note primitives: commitment, nullifier, view-key encryption, boundary-denomination validation.             |
 | [`crates/frost-verify-check`](crates/frost-verify-check)                                 | Off-chain BN254 pairing verifier used to de-risk on-chain verification before ceremony rotations.          |
 | [`crates/confidential-vault`](crates/confidential-vault)                                 | Token-2022 confidential balance with an independent ElGamal view key so a FROST group can own one.         |
+| [`crates/pool-recovery`](crates/pool-recovery)                                           | Rebuild a vault's note set and balance from Solana chain state plus the view key. No server trust required. |
 
 The on-chain pool program itself is a fork of Privacy Cash's zkcash (deployed at the mainnet program ID below). The source of that program is not vendored in this client repo; see [`programs/zkcash/README.md`](programs/zkcash/README.md) for the reference wrapper. This repo focuses on the client-side original work: circuits, threshold-signing implementation, note primitives, and off-chain verifier.
 

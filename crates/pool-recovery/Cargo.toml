@@ -1,0 +1,24 @@
+[package]
+name = "pool-recovery"
+version = "0.1.0"
+edition = "2021"
+description = "Reconstruct an Unbridge vault's note set and balance from Solana chain state plus the view key, with no reliance on local cache."
+license = "MIT"
+repository = "https://github.com/unbridgeDev/unbridge-client"
+homepage = "https://unbridge.dev"
+readme = "README.md"
+
+[lib]
+name = "pool_recovery"
+path = "src/lib.rs"
+
+[dependencies]
+pool-note = { path = "../pool-note" }
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2.9", default-features = false, features = ["tls", "json"] }
+base64 = "0.22"
+
+[dev-dependencies]
+rand_core = { version = "0.6", features = ["getrandom"] }
