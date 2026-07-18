@@ -157,6 +157,18 @@ const account = await rpc.getAccountInfo(configPda);
 |   |-- verify.mdx               # on-chain checks anyone can run
 |   |-- getting-started.mdx
 |   `-- faq.mdx
+|-- circuits/                    # Unbridge-original circom circuits
+|   |-- spend_auth.circom        # FROST-compatible spend authorization
+|   |-- pool_deposit.circom      # fast deposit-only path
+|   |-- pool_tx.circom           # full 2-in-2-out transact
+|   |-- verifying-keys/          # per-epoch Rust byte arrays
+|   `-- README.md                # explains the Unbridge modifications
+|-- crates/
+|   `-- frost-verify-check/      # off-chain BN254 pairing verifier
+|-- client/
+|   |-- scripts/                 # Node CLI: witness gen, FROST, tx submit
+|   |-- package.json
+|   `-- README.md
 |-- programs/
 |   `-- zkcash/                  # on-chain program (mainnet: 6ESjwd...)
 |       |-- Cargo.toml
