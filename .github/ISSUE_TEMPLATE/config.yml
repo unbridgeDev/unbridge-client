@@ -4,5 +4,5 @@ contact_links:
     url: https://unbridge.dev
     about: Architecture, protocol spec, integration guide.
   - name: Security disclosure
-    url: https://github.com/unbridgeDev/unbridge/security/advisories/new
+    url: https://github.com/unbridgeDev/unbridge-client/security/advisories/new
     about: Report a vulnerability privately. Do not file a public issue.

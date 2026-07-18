@@ -19,7 +19,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/unbridgeDev/unbridge.git",
+    "url": "git+https://github.com/unbridgeDev/unbridge-client.git",
     "directory": "client"
   },
   "author": {

@@ -34,7 +34,7 @@ they deem inappropriate.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the maintainers via a
-[GitHub private security advisory](https://github.com/unbridgeDev/unbridge/security/advisories/new)
+[GitHub private security advisory](https://github.com/unbridgeDev/unbridge-client/security/advisories/new)
 or by contacting a maintainer directly. All complaints will be reviewed and
 investigated promptly and fairly.
 

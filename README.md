@@ -13,15 +13,15 @@
 
 <p align="center">
   <a href="https://unbridge.dev"><img alt="app" src="https://img.shields.io/badge/app-unbridge.dev-8B5CF6?style=for-the-badge"/></a>
-  <a href="https://github.com/unbridgeDev/unbridge/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/unbridgeDev/unbridge/ci.yml?branch=main&style=for-the-badge&label=ci&color=8B5CF6"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge-client/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/unbridgeDev/unbridge-client/ci.yml?branch=main&style=for-the-badge&label=ci&color=8B5CF6"/></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-8B5CF6?style=for-the-badge"/></a>
-  <a href="https://github.com/unbridgeDev/unbridge/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge-client/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/unbridgeDev/unbridge-client?style=for-the-badge&color=8B5CF6"/></a>
 </p>
 
 <p align="center">
   <img alt="network" src="https://img.shields.io/badge/solana-mainnet-8B5CF6?style=for-the-badge"/>
-  <a href="https://github.com/unbridgeDev/unbridge/commits/main"><img alt="last commit" src="https://img.shields.io/github/last-commit/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
-  <a href="https://github.com/unbridgeDev/unbridge/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/unbridgeDev/unbridge?style=for-the-badge&color=8B5CF6"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge-client/commits/main"><img alt="last commit" src="https://img.shields.io/github/last-commit/unbridgeDev/unbridge-client?style=for-the-badge&color=8B5CF6"/></a>
+  <a href="https://github.com/unbridgeDev/unbridge-client/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/unbridgeDev/unbridge-client?style=for-the-badge&color=8B5CF6"/></a>
   <a href="https://x.com/Unbridgedev"><img alt="twitter" src="https://img.shields.io/twitter/follow/Unbridgedev?style=for-the-badge&color=8B5CF6&label=%40Unbridgedev"/></a>
 </p>
 
@@ -101,8 +101,8 @@ Full write-up in [`docs/architecture.mdx`](docs/architecture.mdx).
 ## Build
 
 ```bash
-git clone --recurse-submodules https://github.com/unbridgeDev/unbridge.git
-cd unbridge
+git clone --recurse-submodules https://github.com/unbridgeDev/unbridge-client.git
+cd unbridge-client
 
 # Type-check without producing binaries
 make check
@@ -250,7 +250,7 @@ plainly. See [`docs/security.mdx`](docs/security.mdx).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Security reports go to
 [SECURITY.md](SECURITY.md) or the private
-[advisory route](https://github.com/unbridgeDev/unbridge/security/advisories/new).
+[advisory route](https://github.com/unbridgeDev/unbridge-client/security/advisories/new).
 Community guidelines in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Status
@@ -263,7 +263,7 @@ deposit more than you are willing to expose to that risk.
 - Website: [unbridge.dev](https://unbridge.dev)
 - Docs: [unbridge.dev/docs](https://unbridge.dev/docs)
 - X: [@Unbridgedev](https://x.com/Unbridgedev)
-- GitHub: [unbridgeDev/unbridge](https://github.com/unbridgeDev/unbridge)
+- GitHub: [unbridgeDev/unbridge-client](https://github.com/unbridgeDev/unbridge-client)
 - Explorer: [6ESjwd...RRALu](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)
 
 ## License

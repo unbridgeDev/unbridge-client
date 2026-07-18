@@ -12,7 +12,7 @@ Two channels, either is fine:
    published alongside the trusted-setup ceremony's key rotation. Until then,
    plain email is fine.
 2. **Private security advisory** on GitHub:
-   [Report a vulnerability](https://github.com/unbridgeDev/unbridge/security/advisories/new).
+   [Report a vulnerability](https://github.com/unbridgeDev/unbridge-client/security/advisories/new).
    This is the recommended path if you already have a GitHub account.
 
 Please include:

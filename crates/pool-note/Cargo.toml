@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Note primitives for the Unbridge shielded pool: Poseidon commitment, nullifier derivation, view-key encryption, and boundary-denomination validation."
 license = "MIT"
-repository = "https://github.com/unbridgeDev/unbridge"
+repository = "https://github.com/unbridgeDev/unbridge-client"
 homepage = "https://unbridge.dev"
 readme = "README.md"
 
