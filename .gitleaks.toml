@@ -1,0 +1,34 @@
+title = "Unbridge gitleaks config"
+
+# Extends the default ruleset. The blocks below carve out narrow allowlists
+# for on-chain-public cryptographic constants (Groth16 verifying keys and
+# Powers-of-Tau test vectors) that the generic-api-key rule mistakes for
+# credential blobs. These bytes are the deterministic outputs of a public
+# trusted-setup ceremony and are read directly from the on-chain program;
+# they are not secrets in any operational sense.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Groth16 verifying keys and Poseidon constants — public cryptographic material, not secrets"
+paths = [
+    '''circuits/verifying-keys/.*_verifying_key\.rs''',
+    '''programs/zkcash/src/verifying_keys\.rs''',
+    '''programs/zkcash/tests/unit/groth16_test\.rs''',
+    '''programs/zkcash/tests/unit/utils_test\.rs''',
+]
+
+[[allowlists]]
+description = "Historical pre-pivot docs no longer in HEAD (crypto constants, published on-chain)"
+paths = [
+    '''OPERATORS\.md''',
+    '''AUDITORS\.md''',
+    '''AUDIT_SCOPE\.md''',
+    '''MAINNET\.md''',
+]
+
+[[allowlists]]
+description = "Local-only R&D spikes (engine/) — gitignored in HEAD, appears only in older commits"
+paths = [
+    '''engine/.*''',
+]
