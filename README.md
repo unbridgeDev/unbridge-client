@@ -33,6 +33,28 @@ is a map of who runs your money. Unbridge keeps the shared control and removes
 the map: on-chain the vault is one ordinary wallet, spends come out of a
 zero-knowledge proof, and no observer can tell one deposit from another.
 
+## What is original to Unbridge
+
+The load-bearing contribution is a single primitive: a threshold signature
+verified **inside** a Groth16 circuit, deployed on top of a shielded pool.
+That primitive is what lets a group control a private vault where the
+group key never exists at any moment, not even at signing time.
+
+| Component                                                                                | Original to Unbridge                                                                                       |
+|------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| [`circuits/spend_auth.circom`](circuits/spend_auth.circom)                               | FROST-compatible spend authorisation. Swaps Privacy Cash's key-preimage check for an EdDSA-Poseidon signature verified in-circuit. |
+| [`circuits/pool_tx.circom`](circuits/pool_tx.circom)                                     | Full 2-in-2-out transact circuit wired to the new spend-auth primitive with the Sapling ak/nk nullifier split. |
+| [`circuits/pool_deposit.circom`](circuits/pool_deposit.circom)                           | 4-input deposit-only circuit (~10x smaller than transact, proves in ~0.3s).                                |
+| [`crates/pool-note`](crates/pool-note)                                                   | Note primitives: commitment, nullifier, view-key encryption, boundary-denomination validation.             |
+| [`crates/frost-verify-check`](crates/frost-verify-check)                                 | Off-chain BN254 pairing verifier used to de-risk on-chain verification before ceremony rotations.          |
+| [`crates/confidential-vault`](crates/confidential-vault)                                 | Token-2022 confidential balance with an independent ElGamal view key so a FROST group can own one.         |
+
+The pool infrastructure (Merkle tree, join-split account layout, Groth16
+pairing wiring) is adapted from Privacy Cash's zkcash pool and Light
+Protocol's groth16-solana; attribution lives in the file headers.
+
+## Deployed
+
 The on-chain program is live on Solana mainnet at
 `6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu`
 ([Solana Explorer](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)).
