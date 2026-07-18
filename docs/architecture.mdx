@@ -11,10 +11,14 @@ A Solana program that owns the shielded pool. It holds:
 - A set of **spent nullifiers**, so a note cannot be spent twice.
 - The **Groth16 verifying key** for the spend and deposit circuits.
 
-Its only privileged instructions adjust configuration (deposit limit, verifying key for a
-setup rotation). There is no instruction that transfers pool funds to an address of the
-caller's choosing. Value only leaves the pool through a valid proof that consumes a note
-the caller can prove they own.
+Its privileged instructions adjust configuration: per-transaction deposit caps
+(`update_deposit_limit`, `update_deposit_limit_for_spl_token`), fee rates and margins
+(`update_global_config`), the association-set-provider role (`set_asp_authority`,
+`push_association_root`), and per-mint tree init for SPL support
+(`initialize_tree_account_for_spl_token`). None of them transfers pool funds to a
+caller-chosen address. Value only leaves the pool through `deposit`, `transact`, or
+`transact_spl`, each of which verifies a Groth16 proof consuming a note the caller can
+prove they own. See [`verify.mdx`](verify.mdx) for the full surface.
 
 ```
 Program: 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu (mainnet)
