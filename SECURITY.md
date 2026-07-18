@@ -6,14 +6,34 @@ bug. We take reports seriously and ask you to disclose privately.
 
 ## Reporting a vulnerability
 
-Email **security@unbridge.dev** with:
+Two channels, either is fine:
+
+1. **Email** `security@unbridge.dev`. Encrypt if you can; the PGP key fingerprint
+   is `unbridge.dev/.well-known/pgp-key.txt` and its fingerprint is republished
+   on this repo's [Security page](https://github.com/unbridgeDev/unbridge/security).
+2. **Private security advisory** on GitHub:
+   [Report a vulnerability](https://github.com/unbridgeDev/unbridge/security/advisories/new).
+   This is the recommended path if you already have a GitHub account.
+
+Please include:
 
 - a description of the issue and its impact,
 - steps or a proof of concept to reproduce it,
-- the affected component (on-chain program, circuit, coordinator, relayer, client).
+- the affected component (on-chain program, circuit, coordinator, relayer, client),
+- your preferred handle for credit (or a note that you prefer to stay anonymous).
 
-Please do not open a public issue for a vulnerability. We will acknowledge within a few
-days and keep you updated through to a fix.
+Please do not open a public issue for a vulnerability. We aim to acknowledge within
+72 hours and to have a triage assessment (accepted, disputed, out of scope) within
+7 days. A fix's timeline depends on severity and complexity; we will keep you
+updated.
+
+## Safe harbor
+
+Good-faith research on the deployed mainnet program is welcome under the standard
+Solana disclosure conventions: no exfiltration of user funds, no denial of service,
+no social engineering against team members or infrastructure providers. If you
+report a live-fund-loss vulnerability privately and reasonably, we will not pursue
+legal action for the research that surfaced it.
 
 ## Scope
 
