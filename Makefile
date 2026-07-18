@@ -1,18 +1,13 @@
-.PHONY: help build check test lint format clean idl verify
+.PHONY: help check test lint format clean verify
 
 help:
-	@echo "Unbridge build targets:"
-	@echo "  make build     - Build the on-chain program (requires cargo-build-sbf)"
-	@echo "  make check     - Type-check the workspace without producing binaries"
-	@echo "  make test      - Run unit tests"
-	@echo "  make lint      - Run clippy warnings-only"
-	@echo "  make format    - Format all Rust source with rustfmt"
-	@echo "  make clean     - Remove build artifacts"
-	@echo "  make idl       - Regenerate the program IDL"
-	@echo "  make verify    - Compare local build against the deployed mainnet binary length"
-
-build:
-	cargo build-sbf --manifest-path programs/zkcash/Cargo.toml
+	@echo "Unbridge client build targets:"
+	@echo "  make check   - Type-check the client workspace"
+	@echo "  make test    - Run unit tests across all client crates"
+	@echo "  make lint    - Run clippy warnings-only"
+	@echo "  make format  - Format all Rust source with rustfmt"
+	@echo "  make clean   - Remove build artifacts"
+	@echo "  make verify  - Show the on-chain program shape for the deployed pool"
 
 check:
 	cargo check --workspace --all-targets
@@ -31,16 +26,8 @@ format-check:
 
 clean:
 	cargo clean
-	rm -rf target programs/zkcash/target
-
-idl:
-	anchor idl build --program-name zkcash --out programs/zkcash/idl/zkcash.json
 
 verify:
-	@echo "Building program..."
-	@$(MAKE) build
-	@echo "Local build size:"
-	@ls -la target/deploy/zkcash.so 2>/dev/null || ls -la programs/zkcash/target/deploy/zkcash.so
-	@echo "Deployed mainnet size:"
+	@echo "Deployed pool program shape:"
 	@solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu \
-		--url mainnet-beta | grep 'Data Length'
+		--url mainnet-beta

@@ -13,9 +13,6 @@ useDefault = true
 description = "Groth16 verifying keys and Poseidon constants — public cryptographic material, not secrets"
 paths = [
     '''circuits/verifying-keys/.*_verifying_key\.rs''',
-    '''programs/zkcash/src/verifying_keys\.rs''',
-    '''programs/zkcash/tests/unit/groth16_test\.rs''',
-    '''programs/zkcash/tests/unit/utils_test\.rs''',
 ]
 
 [[allowlists]]

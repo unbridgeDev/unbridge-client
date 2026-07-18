@@ -50,16 +50,14 @@ group key never exists at any moment, not even at signing time.
 | [`crates/frost-verify-check`](crates/frost-verify-check)                                 | Off-chain BN254 pairing verifier used to de-risk on-chain verification before ceremony rotations.          |
 | [`crates/confidential-vault`](crates/confidential-vault)                                 | Token-2022 confidential balance with an independent ElGamal view key so a FROST group can own one.         |
 
-The pool infrastructure (Merkle tree, join-split account layout, Groth16
-pairing wiring) is adapted from Privacy Cash's zkcash pool and Light
-Protocol's groth16-solana; attribution lives in the file headers.
+The on-chain pool program itself is a fork of Privacy Cash's zkcash (deployed at the mainnet program ID below). The source of that program is not vendored in this client repo; see [`programs/zkcash/README.md`](programs/zkcash/README.md) for the reference wrapper. This repo focuses on the client-side original work: circuits, threshold-signing implementation, note primitives, and off-chain verifier.
 
 ## Deployed
 
 The on-chain program is live on Solana mainnet at
 `6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu`
 ([Solana Explorer](https://explorer.solana.com/address/6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu)).
-The Rust source lives in [`programs/zkcash`](programs/zkcash). The client
+The client
 runs in your browser at [unbridge.dev](https://unbridge.dev): proving and
 FROST signing happen on your device, never on a server. See
 [`docs/verify.mdx`](docs/verify.mdx) for the on-chain checks that back every

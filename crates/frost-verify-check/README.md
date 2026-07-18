@@ -36,4 +36,4 @@ means:
 ## Status
 
 Ceremony tooling. Not shipped to end users. Comments in `src/groth16.rs`
-mark where behavior must stay in lockstep with `programs/zkcash/src/groth16.rs`.
+mark where behavior must stay in lockstep with `the on-chain BN254 pairing verify`.

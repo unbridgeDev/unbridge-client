@@ -50,7 +50,7 @@ The three files here are the outcome of that decision:
 ## Verifying keys
 
 `verifying-keys/` holds the Rust byte arrays consumed by the on-chain program
-(`programs/zkcash/src/verifying_keys.rs`). They are auto-generated from the
+(the deployed program's verifying keys). They are auto-generated from the
 `.zkey` output of `snarkjs groth16 setup` after the trusted-setup ceremony's
 current-epoch phase-two contribution. Rotating the setup means regenerating
 these files and publishing them in a program upgrade tied to the ceremony
