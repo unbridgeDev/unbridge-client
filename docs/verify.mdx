@@ -1,0 +1,105 @@
+# Verify it yourself
+
+Every claim on this site is checkable against the deployed program and the client
+that runs in your browser. This page lists the checks and the commands that make
+them.
+
+## The program exists on mainnet and is executable
+
+```bash
+solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu \
+  --url mainnet-beta
+```
+
+Expected fields:
+
+```
+Program Id:           6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu
+Owner:                BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address:  5faD89cFeBbkr6H6MarcyijhkR5GdFgzAq6kxQH13JUM
+Authority:            YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf
+Data Length:          502320 (0x7aa30) bytes
+```
+
+Three things to note:
+
+- The `Owner` is the standard upgradeable BPF loader. A non-standard owner would
+  be a red flag.
+- The `Authority` is the deploy wallet. It can push a new program version, but it
+  cannot move pool funds. See the program surface below.
+- The `Data Length` matches the on-chain binary. Reproducible builds from source
+  will land at the same length; the ceremony schedule covers when we publish the
+  build hash.
+
+## The program has no instruction that moves pool funds to an admin address
+
+The full instruction surface is ten entrypoints. Three of them move value, and
+all three require a valid Groth16 proof consuming a note the caller can prove
+they own. The other seven adjust configuration and are gated on the deploy
+authority.
+
+Public, proof-gated (value can move):
+
+| Instruction   | What it does                                                   |
+|---------------|----------------------------------------------------------------|
+| `deposit`     | Adds a note to the pool. Verifies a deposit proof.             |
+| `transact`    | Spends notes (withdrawal or internal transfer). Verifies a spend proof. |
+| `transact_spl`| Same as `transact`, for SPL token pools.                       |
+
+Admin-gated (no value movement):
+
+| Instruction                              | What it does                       |
+|------------------------------------------|------------------------------------|
+| `initialize`                             | One-time pool init.                |
+| `initialize_tree_account_for_spl_token`  | Per-mint tree init.                |
+| `update_deposit_limit`                   | Adjusts the per-tx deposit cap.    |
+| `update_deposit_limit_for_spl_token`     | Same, for an SPL mint.             |
+| `update_global_config`                   | Fee rates and limits.              |
+| `set_asp_authority`                      | Hands off the association-root role. |
+| `push_association_root`                  | Publishes a new association root.  |
+
+There is no `withdraw_admin`, `sweep`, `admin_transfer`, `emergency_drain`, or
+`set_authority` on the pool. If a future version adds one, the deployed binary
+length changes and the new bytecode is on-chain for anyone to disassemble.
+
+## The upgrade authority is disclosed, not hidden
+
+```bash
+solana program show 6ESjwd4u6qW8SP9PtNwNus1hBJTxKViWra91C36RRALu \
+  --url mainnet-beta | grep Authority
+```
+
+The authority is `YZykTqXgx91g2FSXoTh7q46HJnbwEH17jRhbNzbfppf`. It can push a
+new program version; it cannot invoke a fund-moving instruction that does not
+exist. Removing the authority (setting it to `None`, making the program immutable)
+is scheduled after the trusted-setup ceremony closes so a bug found during the
+ceremony can still be fixed.
+
+## The trusted setup ceremony is public
+
+Contribute entropy at [unbridge.dev/ceremony](https://unbridge.dev/ceremony).
+The current verifying key is fixed on-chain; the next rotation adopts external
+contributions on a scheduled slot. One honest external contributor is enough to
+make the setup sound. See [`security.mdx`](security.mdx#what-you-trust).
+
+## The client runs in your browser
+
+Open the network tab on [unbridge.dev](https://unbridge.dev) and observe: the
+proving key, circuit witnesses, and FROST round data are computed and combined
+in the page. The only server calls are Solana RPC (public, read-only) and the
+relayer submit endpoint. Your key share and note secrets never leave your device.
+
+For the paranoid: run the page offline after first load, or clone the client
+bundle and serve it yourself. Deposit and withdrawal are just Solana transactions
+constructed in the browser; the relayer only forwards them.
+
+## No trust in Unbridge servers is required for spending
+
+- The **coordinator** relays ceremony messages; it holds no shares and cannot
+  produce a signature.
+- The **relayer** pays the network fee and sees the recipient at submit time; it
+  cannot alter the proof or the recipient without invalidating the transaction.
+- The **admin** (upgrade authority) cannot invoke fund-moving instructions.
+
+The set of instructions that move value has this property by construction, not by
+promise: read the ten instruction names above and note which three take proofs.
